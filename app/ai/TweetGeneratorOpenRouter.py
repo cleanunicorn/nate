@@ -20,7 +20,7 @@ class TweetGeneratorOpenRouter:
             tweets (str): The input text to generate a tweet from
         """
         completion = self.client.chat.completions.create(
-            model="meta-llama/llama-3.1-405b-instruct:free",
+            model="meta-llama/llama-3.1-405b-instruct",
             messages=[
                 {
                     "role": "system",
