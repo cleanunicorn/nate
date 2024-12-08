@@ -19,16 +19,18 @@ client = TwitterClient(
 
 timeline = client.get_timeline()
 
-simplified_timeline = []
-for t in timeline:
-    simplified_timeline.append({"author": "", "text": t["text"]})
+print(timeline)
 
-generator = TweetGeneratorOpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
+# simplified_timeline = []
+# for t in timeline:
+#     simplified_timeline.append({"author": "", "text": t["text"]})
 
-new_tweet = generator.create_tweet(tweets=json.dumps(simplified_timeline))
+# generator = TweetGeneratorOpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
 
-new_tweet = clean_tweet(new_tweet)
+# new_tweet = generator.create_tweet(tweets=json.dumps(simplified_timeline))
 
-client.post_tweet(new_tweet)
+# new_tweet = clean_tweet(new_tweet)
 
-print(new_tweet)
+# client.post_tweet(new_tweet)
+
+# print(new_tweet)
