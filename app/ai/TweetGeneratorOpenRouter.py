@@ -3,6 +3,7 @@ import json
 import time
 
 from config.prompts import SYSTEM_PROMPT, USER_PROMPT_TWITTER
+from app.utils.utils import format_tweet_timeline
 
 
 class TweetGeneratorOpenRouter:
@@ -55,17 +56,22 @@ class TweetGeneratorOpenRouter:
         Args:
             tweets (str): The input text to generate a tweet from
         """
+        messages=[
+            {
+                "role": "system",
+                "content": self.system,
+            },
+            {
+                "role": "user",
+                "content": self.prompt.format(
+                    twitter_timeline=format_tweet_timeline(tweets)
+                ),
+            },
+        ]
         completion = self.create_message(
-            messages=[
-                {
-                    "role": "system",
-                    "content": self.system,
-                },
-                {
-                    "role": "user",
-                    "content": self.prompt.format(twitter_timeline=tweets),
-                },
-            ],
+            messages=messages,
         )
+
+        print(messages)
 
         return completion

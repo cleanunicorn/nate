@@ -1,5 +1,7 @@
 from ollama import chat
+
 from config.prompts import SYSTEM_PROMPT, USER_PROMPT_TWITTER
+from app.utils.utils import format_tweet_timeline
 
 
 class TweetGeneratorOllama:
@@ -23,13 +25,14 @@ class TweetGeneratorOllama:
                 },
                 {
                     "role": "user",
-                    "content": self.prompt.format(twitter_timeline=tweets),
+                    "content": self.prompt.format(twitter_timeline=format_tweet_timeline(tweets)),
                 },
             ],
             options={
-                "temperature": 1.5,
+                "temperature": 1.8,
                 "num_predict": 720,
                 "num_ctx": 16384,
+                "seed": 1234,
             },
         )
         return response["message"]["content"]
