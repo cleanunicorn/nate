@@ -18,6 +18,18 @@ client = TwitterClient(
 
 timeline = client.get_timeline()
 
+# Test get other user's timeline
+username = "alexmarcudev"
+user_id = client.get_user_id(username)
+print(f"User {username} has ID {user_id}")
+if user_id:
+    tweets = client.get_timeline(user_id=user_id)
+    print(f"User {username} has {len(tweets)} tweets")
+    print(f"Dump of tweets: {tweets}")
+    print("--------------------------------")
+else:
+    print(f"Could not find user {username}")
+
 simplified_timeline = []
 for t in timeline:
     simplified_timeline.append({"username": t["username"], "text": t["text"]})
