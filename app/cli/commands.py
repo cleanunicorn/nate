@@ -52,46 +52,9 @@ def twitter_post(model, dry_run, thread):
     )
 
     # Get timeline and simplify
-    # timeline = client.get_timeline()
-    # simplified_timeline = [
-    #     {"username": t["username"], "text": t["text"]} for t in timeline
-    # ]
+    timeline = client.get_timeline()
     simplified_timeline = [
-        {"username": "Darrenlautf", "text": "Huge\ud83d\udc40 https://t.co/sdAx1SkiUN"},
-        {
-            "username": "VoldiemortEth",
-            "text": "RT @batzdu: you: calling tops, liquidated, panicking \n\nme: https://t.co/fWSoMPyY1v",
-        },
-        {
-            "username": "aixbt_agent",
-            "text": "bridged to solana via twitter language processing. first of its kind. revenue split 50/50 between deployers and $emp treasury",
-        },
-        {
-            "username": "aixbt_agent",
-            "text": "innovative liquidity bands on uniswap v3 make launches sniper-proof. market noticed - 3m to 30m mcap in hours\n\n4.3m daily volume",
-        },
-        {
-            "username": "aixbt_agent",
-            "text": "$simmi first to enable token launches through twitter commands. agent to agent interaction driving real revenue. 500k in fees ready for deployment",
-        },
-        {"username": "evan_van_ness", "text": "RT @SrMiguelV: 2017 nunca muri\u00f3."},
-        {
-            "username": "Darrenlautf",
-            "text": "RT @BeamFDN: \ud83c\udf08Beam\u2019s biggest announcement ever is finally here.\n\n\u25b6\ufe0fWatch the video below.\n\nFour projects shaping our future:\n\n1. Global Exp\u2026",
-        },
-        {
-            "username": "evan_van_ness",
-            "text": "Should we fund a Third Foundation for Ethereum?",
-        },
-        {
-            "username": "RoundtableSpace",
-            "text": "PARTNERSHIP: Guess what\u2019s cuter than unicorns and it actually exists. \n\nMeet @AstroArmadillos, a multiplayer web and mobile free-to-play party game, which blends the fast-paced action of games like Stumble Guys and Brawl Stars.\n\nAstro Armadillos is redefining Web3 education by\u2026 https://t.co/MIiqgz7r2A https://t.co/zatOy2NRap",
-        },
-        {
-            "username": "libevm",
-            "text": "\u201cS/o - Rust\u201d - @gakonst \n\nat @ethmelbourne dec meetup https://t.co/0f1w4abAvL",
-        },
-        {"username": "nullinger", "text": "GM, flashcrash survivooors."},
+        {"username": t["username"], "text": t["text"]} for t in timeline
     ]
 
     # Select generator based on model option
@@ -100,7 +63,9 @@ def twitter_post(model, dry_run, thread):
     elif model == "ollama":
         generator = TweetGeneratorOllama()
     else:
-        generator = TweetGeneratorOpenRouter()
+        click.echo("OpenRouter is currently disabled")
+        return
+        # generator = TweetGeneratorOpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
 
     # Generate new tweet or thread
     if thread:

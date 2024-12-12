@@ -1,6 +1,6 @@
 from ollama import chat
-from pydantic import BaseModel
 
+from app.ai.models import TweetFormat, TweetThreadFormat
 from config.prompts import (
     SYSTEM_PROMPT,
     USER_PROMPT_TWITTER,
@@ -8,14 +8,6 @@ from config.prompts import (
     TWITTER_PROMPT_THREAD,
 )
 from app.utils.utils import format_tweet_timeline
-
-class TweetThreadFormat(BaseModel):
-    tweets: list[str]
-    topic: str
-
-class TweetFormat(BaseModel):
-    text: str
-    topic: str
 
 class TweetGeneratorOllama:
     def __init__(self):
@@ -48,15 +40,12 @@ class TweetGeneratorOllama:
                 },
             ],
             options={
-                "temperature": 1.8,
+                "temperature": 1.2,
                 "num_predict": 720,
                 "num_ctx": 16384,
-                "seed": 1234,
             },
             format=TweetThreadFormat.model_json_schema() if thread else TweetFormat.model_json_schema(),
         )
-
-        print(response)
 
         # Extract the tweets from the response
         if thread:
