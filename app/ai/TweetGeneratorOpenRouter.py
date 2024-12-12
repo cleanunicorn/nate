@@ -56,7 +56,7 @@ class TweetGeneratorOpenRouter:
         Args:
             tweets (str): The input text to generate a tweet from
         """
-        messages=[
+        messages = [
             {
                 "role": "system",
                 "content": self.system,

@@ -17,21 +17,17 @@ class TwitterClient:
     def get_timeline(self):
         tweets = self.client.get_home_timeline(
             max_results=50,
-            tweet_fields=["author_id", "in_reply_to_user_id", "conversation_id", "text"],
+            tweet_fields=[
+                "author_id",
+                "in_reply_to_user_id",
+                "conversation_id",
+                "text",
+            ],
             expansions=["author_id"],
             user_fields=["username"],
         )
 
         homepage_tweets = []
-
-        # Cache usernames
-        # users = tweets[1]['users']
-        # usernames = {}
-        # for user in users:
-        #     usernames[user['data']['id']] = {
-        #         'name': usernames[user['data']['name']],
-        #         'username': usernames[user['data']['username']]
-        #     }
 
         for tweet in tweets.data:
             tweet_data = {}
@@ -41,7 +37,9 @@ class TwitterClient:
                 tweet_data["author_id"] = getattr(tweet, "author_id")
                 tweet_data["conversation_id"] = getattr(tweet, "conversation_id")
                 tweet_data["username"] = next(
-                    user.username for user in tweets.includes["users"] if user.id == tweet.author_id
+                    user.username
+                    for user in tweets.includes["users"]
+                    if user.id == tweet.author_id
                 )
             except:
                 pass
@@ -49,3 +47,17 @@ class TwitterClient:
             homepage_tweets.append(tweet_data)
 
         return homepage_tweets
+
+    def post_thread(self, tweets: list[str]) -> None:
+        """Post a thread of tweets"""
+        # Post first tweet
+        response = self.client.create_tweet(text=tweets[0])
+        previous_id = response.data['id']
+        
+        # Post rest of thread in reply to previous tweet
+        for tweet in tweets[1:]:
+            response = self.client.create_tweet(
+                text=tweet,
+                in_reply_to_tweet_id=previous_id
+            )
+            previous_id = response.data['id']
