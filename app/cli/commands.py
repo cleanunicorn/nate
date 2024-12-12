@@ -41,7 +41,13 @@ def twitter():
     is_flag=True,
     help="Generate a thread of tweets instead of a single tweet",
 )
-def twitter_post(model, dry_run, thread):
+@click.option(
+    "--sample",
+    "-s",
+    is_flag=True,
+    help="Use sample data instead of real Twitter timeline",
+)
+def twitter_post(model, dry_run, thread, sample):
     """Generate and post a tweet or thread based on timeline analysis"""
     # Initialize Twitter client
     client = TwitterClient(
@@ -52,7 +58,11 @@ def twitter_post(model, dry_run, thread):
     )
 
     # Get timeline and simplify
-    timeline = client.get_timeline()
+    if sample:
+        timeline = client.get_sample_timeline()
+    else:
+        timeline = client.get_timeline()
+
     simplified_timeline = [
         {"username": t["username"], "text": t["text"]} for t in timeline
     ]

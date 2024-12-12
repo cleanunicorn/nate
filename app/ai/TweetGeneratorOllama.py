@@ -9,6 +9,7 @@ from config.prompts import (
 )
 from app.utils.utils import format_tweet_timeline
 
+
 class TweetGeneratorOllama:
     def __init__(self):
         self.system = SYSTEM_PROMPT
@@ -44,12 +45,16 @@ class TweetGeneratorOllama:
                 "num_predict": 720,
                 "num_ctx": 16384,
             },
-            format=TweetThreadFormat.model_json_schema() if thread else TweetFormat.model_json_schema(),
+            format=TweetThreadFormat.model_json_schema()
+            if thread
+            else TweetFormat.model_json_schema(),
         )
 
         # Extract the tweets from the response
         if thread:
-            content = TweetThreadFormat.model_validate_json(response["message"]["content"])
+            content = TweetThreadFormat.model_validate_json(
+                response["message"]["content"]
+            )
         else:
             content = TweetFormat.model_validate_json(response["message"]["content"])
 

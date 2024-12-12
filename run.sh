@@ -1,14 +1,22 @@
-#!/bin/bash
+#!/bin/sh
 
-# Activate virtual environment if it exists
-if [ -d ".venv" ]; then
-    source .venv/bin/activate
+# Make sure the environment file is set
+if [ ! -f ".env" ]; then 
+    echo "Error: .env file not found." 
+    exit 1 
 fi
 
-# Pass all arguments to nate command
-nate "$@"
+# Set working directory to /app (current folder)
+WORKDIR=/app
 
-# Deactivate virtual environment if it was activated
-if [ -n "$VIRTUAL_ENV" ]; then
-    deactivate
-fi
+# Container name
+CONTAINER_NAME=nate-container
+
+# Build Docker image
+docker build -t nate .
+
+# Stop and remove existing container if it exists
+docker rm -f $CONTAINER_NAME >/dev/null 2>&1 || true
+
+# Run new container with auto-remove and pass through all arguments
+docker run --name $CONTAINER_NAME --rm nate "$@"
