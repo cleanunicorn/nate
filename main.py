@@ -36,9 +36,9 @@ generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
 new_tweet = generator.create_tweet(tweets=simplified_timeline)
 
 new_tweet = clean_tweet(new_tweet)
-
-client.post_tweet(new_tweet)
-
 print("---")
 print(new_tweet)
 print("---")
+
+client.post_tweet(new_tweet)
+
