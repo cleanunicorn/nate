@@ -5,7 +5,6 @@ import time
 from config.prompts import SYSTEM_PROMPT, USER_PROMPT_TWITTER
 from app.utils.utils import format_tweet_timeline
 
-
 class TweetGeneratorOpenAI:
     def __init__(self, api_key: str):
         self.client = OpenAI(api_key=api_key)
@@ -16,9 +15,12 @@ class TweetGeneratorOpenAI:
         response = self.client.chat.completions.create(
             model="gpt-4o-mini",
             messages=messages,
-            temperature=1.3,
-            seed=int(time.time()),
+            temperature=1.1,
+            # seed=int(time.time()),
             max_tokens=720,
+            top_p=0.85,
+            frequency_penalty=0.15,
+            presence_penalty=0.25
         )
 
         if not response.choices:

@@ -15,6 +15,6 @@ def clean_tweet(text):
 def format_tweet_timeline(tweets) -> str:
     timeline = ""
     for tweet in tweets:
-        timeline = f"{tweet['username']}: {tweet['text']}\n---\n" + timeline
+        timeline = f"@{tweet['username']}: {tweet['text']}\n---\n" + timeline
 
     return timeline
