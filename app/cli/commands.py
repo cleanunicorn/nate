@@ -7,6 +7,9 @@ from app.ai.TweetGeneratorOllama import TweetGeneratorOllama
 from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
 from app.utils.utils import clean_tweet
 
+# Load environment variables at module level
+load_dotenv()
+
 @click.group()
 def cli():
     """Nate - Your AI-powered social media assistant"""
@@ -27,9 +30,6 @@ def twitter():
               help='Generate tweet without posting')
 def twitter_post(model, dry_run):
     """Generate and post a tweet based on timeline analysis"""
-    # Load auth keys
-    load_dotenv()
-
     # Initialize Twitter client
     client = TwitterClient(
         api_key=getenv("TWITTER_API_KEY"),
