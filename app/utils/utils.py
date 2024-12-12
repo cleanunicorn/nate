@@ -7,7 +7,7 @@ def clean_tweet(text):
     text = text.strip()
 
     # Remove hashtags
-    text = ' '.join(word for word in text.split() if not word.startswith('#'))
+    text = " ".join(word for word in text.split() if not word.startswith("#"))
 
     return text
 
