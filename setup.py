@@ -8,7 +8,7 @@ setup(
     install_requires=[
         "Click",
         "python-dotenv",
-        # Add other dependencies as needed
+        "ollama"
     ],
     entry_points={
         "console_scripts": [
