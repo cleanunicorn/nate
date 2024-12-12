@@ -9,13 +9,16 @@ from config.prompts import (
 )
 from app.utils.utils import format_tweet_timeline
 
+
 class TweetGeneratorOpenAI:
     def __init__(self, api_key: str):
         self.system = SYSTEM_PROMPT
         self.prompt = USER_PROMPT_TWITTER
         self.client = OpenAI(api_key=api_key)
 
-    def create_tweet(self, tweets: str, thread: bool = False) -> TweetFormat | TweetThreadFormat:
+    def create_tweet(
+        self, tweets: str, thread: bool = False
+    ) -> TweetFormat | TweetThreadFormat:
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=[
@@ -24,7 +27,9 @@ class TweetGeneratorOpenAI:
                     "role": "user",
                     "content": self.prompt.format(
                         twitter_timeline=format_tweet_timeline(tweets),
-                        twitter_action=TWITTER_PROMPT_THREAD if thread else TWITTER_PROMPT_SINGLE_TWEET,
+                        twitter_action=TWITTER_PROMPT_THREAD
+                        if thread
+                        else TWITTER_PROMPT_SINGLE_TWEET,
                     ),
                 },
             ],

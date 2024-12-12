@@ -13,13 +13,16 @@ from config.prompts import (
 )
 from app.utils.utils import format_tweet_timeline
 
+
 class TweetThreadFormat(BaseModel):
     tweets: list[str]
     topic: str
 
+
 class TweetFormat(BaseModel):
     text: str
     topic: str
+
 
 class TweetGeneratorOpenRouter:
     def __init__(self, api_key=None):
@@ -87,7 +90,9 @@ class TweetGeneratorOpenRouter:
                 "role": "user",
                 "content": self.prompt.format(
                     twitter_timeline=format_tweet_timeline(tweets),
-                    twitter_action=TWITTER_PROMPT_SINGLE_TWEET if not thread else TWITTER_PROMPT_THREAD
+                    twitter_action=TWITTER_PROMPT_SINGLE_TWEET
+                    if not thread
+                    else TWITTER_PROMPT_THREAD,
                 ),
             },
         ]
