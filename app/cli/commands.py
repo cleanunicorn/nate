@@ -9,6 +9,7 @@ from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.ai.TweetGeneratorOllama import TweetGeneratorOllama
 from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
 from app.utils.utils import clean_tweet
+from app.db.models.Tweet_model import Tweet
 
 # Load environment variables at module level
 load_dotenv()
@@ -120,3 +121,105 @@ def twitter_post(model, dry_run, thread, sample):
             click.echo("Tweet posted successfully!")
         else:
             click.echo("Dry run - tweet not posted")
+
+
+@twitter.command(name="reply")
+@click.option(
+    "--local",
+    "-l",
+    is_flag=True,
+    help="Use locally stored tweets from database",
+)
+@click.option(
+    "--dry-run", 
+    "-d", 
+    is_flag=True, 
+    help="Generate tweet without posting"
+)
+@click.option(
+    "--model",
+    "-m",
+    type=click.Choice(["openai", "ollama", "openrouter"]),
+    default="openai",
+    help="AI model to use for tweet generation",
+)
+def twitter_reply(local, dry_run, model):
+    """Generate and post replies to conversations"""
+    # Initialize Twitter client
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+    )
+
+    # Get bot's username
+    bot_username = client.get_own_username()
+
+    # Get conversations either from local DB or Twitter API
+    conversations = client.get_conversations(use_local=local)
+
+    # Filter for conversations needing replies
+    pending_replies = {
+        conv_id: conv for conv_id, conv in conversations.items() 
+        if client.needs_reply(conv)
+    }
+
+    if not pending_replies:
+        click.echo("No conversations need replies")
+        return
+
+    if model == "openai":
+        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"), bot_username=bot_username)
+    elif model == "ollama":
+        generator = TweetGeneratorOllama(bot_username=bot_username)
+    else:
+        click.echo("OpenRouter is currently disabled")
+        return
+    
+    # Display and process conversations needing replies
+    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+
+    for conv_id, conversation in pending_replies.items():
+        click.echo(f"Conversation ID: {conv_id}")
+        click.echo("Participants: " + ", ".join(conversation["participants"]))
+        click.echo(f"Last activity: {conversation['last_tweet_time']}")
+        click.echo("\nTweets:")
+        
+        # Sort tweets by creation time
+        sorted_tweets = sorted(
+            conversation["tweets"], 
+            key=lambda x: x["created_at"]
+        )
+        
+        for tweet in sorted_tweets:
+            click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
+            click.echo(f"{tweet['text']}")
+
+        # Generate reply
+        timeline = [{"username": t["username"], "text": t["text"]} for t in sorted_tweets]
+        conversation_text = "\n".join([
+            f"Tweet from @{t['username']}:\n{t['text']}" 
+            for t in sorted_tweets
+        ])
+        
+        reply = generator.create_reply(tweets=timeline, conversation=conversation_text)
+        
+        click.echo("\nGenerated Reply:")
+        click.echo("---")
+        click.echo(reply.text)
+        click.echo("---")
+        
+        if not dry_run:
+            # Get the last tweet in conversation to reply to
+            last_tweet_id = sorted_tweets[-1]["id"]
+            client.post_reply(
+                text=reply.text,
+                reply_to_tweet_id=last_tweet_id,
+                conversation_id=conv_id
+            )
+            click.echo("Reply posted successfully!")
+        else:
+            click.echo("Dry run - reply not posted")
+        
+        click.echo("\n" + "-"*50 + "\n")
