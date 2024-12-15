@@ -175,7 +175,7 @@ class TwitterClient:
 
     def get_tweets_for_conversation(self, conversation_id):
         """
-        Fetch all tweets for a specific conversation from Twitter API
+        Fetch all tweets for a specific conversation from Twitter API using a single request
         
         Args:
             conversation_id (str): The ID of the conversation to fetch
@@ -188,10 +188,10 @@ class TwitterClient:
         try:
             print(f"\n=== Fetching Conversation {conversation_id} ===")
             
-            # First get the original tweet
-            print("1. Fetching original tweet...")
-            original_tweet = self.client.get_tweet(
-                id=conversation_id,
+            # Get all tweets in the conversation with a single query
+            all_tweets = self.client.search_recent_tweets(
+                query=f"conversation_id:{conversation_id}",
+                max_results=100,  # Increase if needed, max is 100 per request
                 tweet_fields=[
                     "author_id",
                     "in_reply_to_user_id",
@@ -200,90 +200,28 @@ class TwitterClient:
                     "text",
                     "referenced_tweets"
                 ],
-                expansions=["author_id"],
+                expansions=[
+                    "author_id",
+                    "referenced_tweets.id",
+                    "in_reply_to_user_id"
+                ],
                 user_fields=["username"]
             )
             
-            if original_tweet.data:
-                # Get the username from the includes
-                username = next(
-                    user.username
-                    for user in original_tweet.includes["users"]
-                    if user.id == original_tweet.data.author_id
-                )
-                
-                tweet_data = {
-                    "id": original_tweet.data.id,
-                    "text": original_tweet.data.text,
-                    "author_id": original_tweet.data.author_id,
-                    "conversation_id": original_tweet.data.id,
-                    "username": username,
-                    "in_reply_to_user_id": getattr(original_tweet.data, "in_reply_to_user_id", None),
-                    "created_at": original_tweet.data.created_at
+            if all_tweets.data:
+                # Create a map of user IDs to usernames for quick lookup
+                users = {
+                    user.id: user.username 
+                    for user in all_tweets.includes["users"]
                 }
-                conversation_tweets.append(tweet_data)
-                self.save_tweet_to_db(tweet_data, self.get_own_username())
-
-            # Get our own tweets in this conversation
-            our_tweets = self.client.search_recent_tweets(
-                query=f"conversation_id:{conversation_id} from:{self.get_own_username()}",
-                tweet_fields=[
-                    "author_id",
-                    "in_reply_to_user_id",
-                    "conversation_id",
-                    "created_at",
-                    "text",
-                ],
-                expansions=["author_id"],
-                user_fields=["username"]
-            )
-            
-            if our_tweets.data:
-                for tweet in our_tweets.data:
+                
+                for tweet in all_tweets.data:
                     tweet_data = {
                         "id": tweet.id,
                         "text": tweet.text,
                         "author_id": tweet.author_id,
                         "conversation_id": tweet.conversation_id,
-                        "username": self.get_own_username(),
-                        "in_reply_to_user_id": getattr(tweet, "in_reply_to_user_id", None),
-                        "created_at": tweet.created_at
-                    }
-                    conversation_tweets.append(tweet_data)
-                    self.save_tweet_to_db(tweet_data, self.get_own_username())
-
-            # Get all other replies in the conversation
-            other_replies = self.client.search_recent_tweets(
-                query=f"conversation_id:{conversation_id}",
-                tweet_fields=[
-                    "author_id",
-                    "in_reply_to_user_id",
-                    "conversation_id",
-                    "created_at",
-                    "text",
-                ],
-                expansions=["author_id"],
-                user_fields=["username"]
-            )
-            
-            if other_replies.data:
-                for tweet in other_replies.data:
-                    # Skip if we already have this tweet (from our tweets query)
-                    if any(t["id"] == tweet.id for t in conversation_tweets):
-                        continue
-                        
-                    username = next(
-                        user.username
-                        for user in other_replies.includes["users"]
-                        if user.id == tweet.author_id
-                    )
-                    
-                    tweet_data = {
-                        "id": tweet.id,
-                        "text": tweet.text,
-                        "author_id": tweet.author_id,
-                        "conversation_id": tweet.conversation_id,
-                        "username": username,
+                        "username": users.get(tweet.author_id, "unknown"),
                         "in_reply_to_user_id": getattr(tweet, "in_reply_to_user_id", None),
                         "created_at": tweet.created_at
                     }
@@ -292,7 +230,7 @@ class TwitterClient:
                     
         except Exception as e:
             print(f"\nERROR fetching conversation {conversation_id}: {e}")
-            print(f"Full error details:")
+            print("Full error details:")
             import traceback
             traceback.print_exc()
         
@@ -303,107 +241,75 @@ class TwitterClient:
         
         return conversation_tweets
     
-    def get_conversations(self, use_local=False, filter_spam=True):
-        """
-        Fetch mentions and combine with our local tweets to create conversations
+    def add_tweet_to_conversation(self, conversations, tweet_data, conversation_id):
+        """Add a tweet to a conversation and update conversation metadata"""
+        if conversation_id not in conversations:
+            conversations[conversation_id] = {
+                "tweets": [],
+                "participants": set(),
+                "last_tweet_time": None,
+                "our_last_tweet_time": None
+            }
         
-        Args:
-            use_local (bool): If True, only fetch conversations from local database
-        """
-        conversations = {}
+        conversations[conversation_id]["tweets"].append(tweet_data)
+        conversations[conversation_id]["participants"].add(tweet_data["username"])
+        
+        # Update last tweet time
+        if (conversations[conversation_id]["last_tweet_time"] is None or 
+            tweet_data["created_at"] > conversations[conversation_id]["last_tweet_time"]):
+            conversations[conversation_id]["last_tweet_time"] = tweet_data["created_at"]
+        
+        # Update our last tweet time if it's our tweet
+        if tweet_data["username"] == self.get_own_username():
+            if (conversations[conversation_id]["our_last_tweet_time"] is None or
+                tweet_data["created_at"] > conversations[conversation_id]["our_last_tweet_time"]):
+                conversations[conversation_id]["our_last_tweet_time"] = tweet_data["created_at"]
 
-        # Only fetch mentions from Twitter if use_local is False
-        if not use_local:
-            print("\n=== Fetching Mentions ===")
+    def process_mentions(self, conversations, filter_spam=True):
+        """Process mentions and add them to conversations"""
+        print("\n=== Fetching Mentions ===")
+        
+        last_mention_time = self.storage.get_timestamp('last_mention_time')
+        mentions = self.client.get_users_mentions(
+            id=self.storage.get('user_id'),
+            max_results=50,
+            start_time=last_mention_time,
+            tweet_fields=[
+                "author_id", "in_reply_to_user_id", "conversation_id",
+                "created_at", "text", "referenced_tweets",
+            ],
+            expansions=[
+                "author_id", "in_reply_to_user_id",
+                "referenced_tweets.id", "referenced_tweets.id.author_id",
+            ],
+            user_fields=["username", "name"],
+        )
+        
+        if not mentions.data:
+            return
+            
+        print(f"Found {len(mentions.data)} mentions")
+        self.storage.set('last_mention_time', datetime.now(timezone.utc).isoformat())
+        
+        # Filter spam mentions
+        non_spam_mentions = self._filter_spam_mentions(mentions) if filter_spam else mentions.data
+        
+        # Process each mention
+        for tweet in non_spam_mentions:
+            if tweet.conversation_id not in conversations:
+                conversation_tweets = self.get_tweets_for_conversation(tweet.conversation_id)
+                for tweet_data in conversation_tweets:
+                    self.add_tweet_to_conversation(conversations, tweet_data, tweet.conversation_id)
 
-            last_mention_time = self.storage.get_timestamp('last_mention_time')
-
-            mentions = self.client.get_users_mentions(
-                id=self.storage.get('user_id'),
-                max_results=50,
-                start_time=last_mention_time,
-                tweet_fields=[
-                    "author_id",
-                    "in_reply_to_user_id",
-                    "conversation_id",
-                    "created_at",
-                    "text",
-                    "referenced_tweets",
-                ],
-                expansions=[
-                    "author_id", 
-                    "in_reply_to_user_id",
-                    "referenced_tweets.id",
-                    "referenced_tweets.id.author_id",
-                ],
-                user_fields=["username", "name"],
-            )
-
-            if mentions.data:
-                print(f"Found {len(mentions.data)} mentions")
-                self.storage.set('last_mention_time', datetime.now(timezone.utc).isoformat())
-
-                # Filter spam mentions before fetching full conversations
-                non_spam_mentions = []
-                for tweet in mentions.data:
-                    author = next(
-                        user for user in mentions.includes["users"] 
-                        if user.id == tweet.author_id
-                    )
-                    
-                    tweet_data = {
-                        'text': tweet.text,
-                        'username': author.username
-                    }
-                    
-                    if not filter_spam or not is_likely_spam(tweet_data):
-                        non_spam_mentions.append(tweet)
-                
-                print(f"Processing {len(non_spam_mentions)} non-spam mentions")
-                # Process mentions and initialize conversations
-                for tweet in non_spam_mentions:
-                    if tweet.conversation_id not in conversations:
-                        conversations[tweet.conversation_id] = {
-                            "tweets": [],
-                            "participants": set(),
-                            "last_tweet_time": None,
-                            "our_last_tweet_time": None
-                        }
-                        
-                        # Fetch all tweets for this conversation
-                        conversation_tweets = self.get_tweets_for_conversation(tweet.conversation_id)
-                        
-                        # Add tweets to the conversation
-                        for tweet_data in conversation_tweets:
-                            conversations[tweet.conversation_id]["tweets"].append(tweet_data)
-                            conversations[tweet.conversation_id]["participants"].add(tweet_data["username"])
-                            
-                            if (conversations[tweet.conversation_id]["last_tweet_time"] is None or 
-                                tweet_data["created_at"] > conversations[tweet.conversation_id]["last_tweet_time"]):
-                                conversations[tweet.conversation_id]["last_tweet_time"] = tweet_data["created_at"]
-                                
-                            if tweet_data["username"] == self.get_own_username():
-                                if (conversations[tweet.conversation_id]["our_last_tweet_time"] is None or
-                                    tweet_data["created_at"] > conversations[tweet.conversation_id]["our_last_tweet_time"]):
-                                    conversations[tweet.conversation_id]["our_last_tweet_time"] = tweet_data["created_at"]
-
-        # Get our tweets from local database
+    def process_local_tweets(self, conversations):
+        """Process tweets from local database and add them to conversations"""
         print("\n=== Fetching Our Tweets from Database ===")
         session = self.Session()
         try:
-            our_username = self.get_own_username()
-            our_tweets = session.query(Tweet).all()  # Get all tweets from database
+            our_tweets = session.query(Tweet).all()
             print(f"Found {len(our_tweets)} tweets in database")
             
             for tweet in our_tweets:
-                if tweet.conversation_id not in conversations:
-                    conversations[tweet.conversation_id] = {
-                        "tweets": [],
-                        "participants": set(),
-                        "last_tweet_time": None,
-                        "our_last_tweet_time": None
-                    }
-                
                 tweet_data = {
                     "id": tweet.tweet_id,
                     "text": tweet.text,
@@ -411,27 +317,38 @@ class TwitterClient:
                     "username": tweet.username,
                     "created_at": tweet.created_at
                 }
+                self.add_tweet_to_conversation(conversations, tweet_data, tweet.conversation_id)
                 
-                conversations[tweet.conversation_id]["tweets"].append(tweet_data)
-                conversations[tweet.conversation_id]["participants"].add(tweet.username)
-                
-                if (conversations[tweet.conversation_id]["last_tweet_time"] is None or 
-                    tweet.created_at > conversations[tweet.conversation_id]["last_tweet_time"]):
-                    conversations[tweet.conversation_id]["last_tweet_time"] = tweet.created_at
-                    
-                if tweet.username == our_username:
-                    if (conversations[tweet.conversation_id]["our_last_tweet_time"] is None or
-                        tweet.created_at > conversations[tweet.conversation_id]["our_last_tweet_time"]):
-                        conversations[tweet.conversation_id]["our_last_tweet_time"] = tweet.created_at
-                        
         except Exception as e:
             print(f"Error fetching tweets from database: {e}")
         finally:
             session.close()
 
-        # Print conversation summary
+    def _filter_spam_mentions(self, mentions):
+        """Filter out spam mentions"""
+        non_spam_mentions = []
+        for tweet in mentions.data:
+            author = next(
+                user for user in mentions.includes["users"] 
+                if user.id == tweet.author_id
+            )
+            
+            tweet_data = {
+                'text': tweet.text,
+                'username': author.username
+            }
+            
+            if not is_likely_spam(tweet_data):
+                non_spam_mentions.append(tweet)
+        
+        print(f"Processing {len(non_spam_mentions)} non-spam mentions")
+        return non_spam_mentions
+
+    def print_conversations_summary(self, conversations):
+        """Print summary of all conversations with tweets"""
         print("\n=== Final Conversations Summary ===")
         print(f"Total conversations found: {len(conversations)}")
+        
         for conv_id, conv in conversations.items():
             print(f"\nConversation {conv_id}:")
             print(f"Participants: {', '.join(conv['participants'])}")
@@ -439,6 +356,41 @@ class TwitterClient:
             print(f"Last tweet time: {conv['last_tweet_time']}")
             print(f"Our last tweet time: {conv['our_last_tweet_time']}")
             
+            # Sort and display tweets
+            print("\nTweets in conversation:")
+            print("-" * 50)
+            
+            sorted_tweets = sorted(
+                conv['tweets'],
+                key=lambda x: x['created_at']
+            )
+            
+            for tweet in sorted_tweets:
+                print(f"\n@{tweet['username']} ({tweet['created_at']}):")
+                print(f"{tweet['text']}")
+                
+            print("-" * 50)
+
+    def get_conversations(self, use_local=False, filter_spam=True):
+        """
+        Fetch mentions and combine with our local tweets to create conversations
+        
+        Args:
+            use_local (bool): If True, only fetch conversations from local database
+            filter_spam (bool): If True, filter out likely spam mentions
+        """
+        conversations = {}
+        
+        # Fetch and process mentions if not using local only
+        if not use_local:
+            self.process_mentions(conversations, filter_spam)
+        
+        # Process local tweets
+        self.process_local_tweets(conversations)
+        
+        # Print summary
+        #self.print_conversations_summary(conversations)
+        
         return conversations
     
     def get_own_username(self):

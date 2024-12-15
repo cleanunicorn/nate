@@ -33,14 +33,12 @@ def is_likely_spam(tweet_data):
     text = tweet_data['text'].lower()
     
     # Check for suspicious URLs
-    t_co_count = text.count("https://t.co/")
-    if t_co_count > 0:
-        spam_indicators += min(t_co_count * 1, 2)
+    if "https://t.co/" in text:
+        spam_indicators += 1
         
     # Check for multiple @ mentions (more than 3)
-    tag_count = text.count("@")
-    if tag_count > 2:
-        spam_indicators += min(tag_count * 0.5, 2)
+    if text.count("@") > 2:
+        spam_indicators += 1
         
     # Check for common spam phrases
     spam_phrases = ["airdrop", "biggest", "lfg", "token distribution", "claim", "giveaway"]
