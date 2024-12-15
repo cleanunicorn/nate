@@ -107,7 +107,7 @@ Give an overview of the following twitter timeline:
 ```
 {twitter_timeline}
 ```
-
+{current_conversation_section}
 {twitter_action}
 """
 )
@@ -115,6 +115,13 @@ Give an overview of the following twitter timeline:
 TWITTER_PROMPT_SINGLE_TWEET = dedent(
     """
 Generate a single tweet.
+"""
+)
+
+TWITTER_PROMPT_REPLY = dedent(
+    """
+Generate a single tweet reply to the current conversation. 
+The reply should be relevant to the conversation context and maintain aipe6571's personality.
 """
 )
 

@@ -87,23 +87,44 @@ class TwitterClient:
 
     def post_reply(self, text, reply_to_tweet_id, conversation_id):
         """Post a reply and save to local database"""
-        response = self.client.create_tweet(
-            text=text,
-            in_reply_to_tweet_id=reply_to_tweet_id
-        )
-        
-        if response.data:
-            tweet_data = {
-                "id": response.data["id"],
-                "text": text,
-                "author_id": self.client.get_me().data.id,
-                "conversation_id": conversation_id,
-                "username": self.get_own_username(),
-                "in_reply_to_user_id": reply_to_tweet_id
-            }
-            self.save_tweet_to_db(tweet_data)
-            return response.data["id"]
-        return None
+        try:
+            # Verify the tweet exists and we can reply to it
+            tweet_to_reply = self.client.get_tweet(
+                id=reply_to_tweet_id,
+                tweet_fields=["author_id", "conversation_id", "reply_settings"]
+            )
+            
+            if not tweet_to_reply.data:
+                print(f"Error: Tweet {reply_to_tweet_id} not found")
+                return None
+                
+            # Check reply settings
+            reply_settings = getattr(tweet_to_reply.data, "reply_settings", "everyone")
+            if reply_settings != "everyone":
+                print(f"Error: Cannot reply to tweet - reply settings: {reply_settings}")
+                return None
+
+            # Post the reply
+            response = self.client.create_tweet(
+                text=text,
+                in_reply_to_tweet_id=reply_to_tweet_id
+            )
+            
+            if response.data:
+                tweet_data = {
+                    "id": response.data["id"],
+                    "text": text,
+                    "author_id": self.client.get_me().data.id,
+                    "conversation_id": conversation_id,
+                    "username": self.get_own_username(),
+                    "in_reply_to_user_id": reply_to_tweet_id
+                }
+                self.save_tweet_to_db(tweet_data)
+                return response.data["id"]
+                
+        except Exception as e:
+            print(f"Error posting reply: {e}")
+            return None
     
     def get_timeline(self):
         tweets = self.client.get_home_timeline(
@@ -184,7 +205,6 @@ class TwitterClient:
             )
             
             if original_tweet.data:
-                print(f"Found original tweet by {original_tweet.data.author_id}")
                 # Get the username from the includes
                 username = next(
                     user.username
@@ -203,11 +223,8 @@ class TwitterClient:
                 }
                 conversation_tweets.append(tweet_data)
                 self.save_tweet_to_db(tweet_data, self.get_own_username())
-            else:
-                print("No original tweet found")
 
             # Get our own tweets in this conversation
-            print(f"\n2. Fetching our tweets (username: {self.get_own_username()})...")
             our_tweets = self.client.search_recent_tweets(
                 query=f"conversation_id:{conversation_id} from:{self.get_own_username()}",
                 tweet_fields=[
@@ -222,9 +239,7 @@ class TwitterClient:
             )
             
             if our_tweets.data:
-                print(f"Found {len(our_tweets.data)} tweets by us")
                 for tweet in our_tweets.data:
-                    print(f"Our tweet: {tweet.text[:50]}...")
                     tweet_data = {
                         "id": tweet.id,
                         "text": tweet.text,
@@ -236,11 +251,8 @@ class TwitterClient:
                     }
                     conversation_tweets.append(tweet_data)
                     self.save_tweet_to_db(tweet_data, self.get_own_username())
-            else:
-                print("No tweets found from us in the conversation")
 
             # Get all other replies in the conversation
-            print("\n3. Fetching other replies...")
             other_replies = self.client.search_recent_tweets(
                 query=f"conversation_id:{conversation_id}",
                 tweet_fields=[
@@ -255,11 +267,9 @@ class TwitterClient:
             )
             
             if other_replies.data:
-                print(f"Found {len(other_replies.data)} other replies")
                 for tweet in other_replies.data:
                     # Skip if we already have this tweet (from our tweets query)
                     if any(t["id"] == tweet.id for t in conversation_tweets):
-                        print(f"Skipping duplicate tweet {tweet.id}")
                         continue
                         
                     username = next(
@@ -268,7 +278,6 @@ class TwitterClient:
                         if user.id == tweet.author_id
                     )
                     
-                    print(f"Reply from @{username}: {tweet.text[:50]}...")
                     tweet_data = {
                         "id": tweet.id,
                         "text": tweet.text,
@@ -280,8 +289,6 @@ class TwitterClient:
                     }
                     conversation_tweets.append(tweet_data)
                     self.save_tweet_to_db(tweet_data, self.get_own_username())
-            else:
-                print("No other replies found")
                     
         except Exception as e:
             print(f"\nERROR fetching conversation {conversation_id}: {e}")
@@ -306,7 +313,6 @@ class TwitterClient:
         conversations = {}
 
         # Only fetch mentions from Twitter if use_local is False
-        print(f"use_local: {use_local}")
         if not use_local:
             print("\n=== Fetching Mentions ===")
 
@@ -352,11 +358,8 @@ class TwitterClient:
                     
                     if not filter_spam or not is_likely_spam(tweet_data):
                         non_spam_mentions.append(tweet)
-                    else:
-                        print(f"Filtered spam mention from @{author.username}")
                 
                 print(f"Processing {len(non_spam_mentions)} non-spam mentions")
-                
                 # Process mentions and initialize conversations
                 for tweet in non_spam_mentions:
                     if tweet.conversation_id not in conversations:
@@ -383,8 +386,6 @@ class TwitterClient:
                                 if (conversations[tweet.conversation_id]["our_last_tweet_time"] is None or
                                     tweet_data["created_at"] > conversations[tweet.conversation_id]["our_last_tweet_time"]):
                                     conversations[tweet.conversation_id]["our_last_tweet_time"] = tweet_data["created_at"]
-            else:
-                print("No mentions found")
 
         # Get our tweets from local database
         print("\n=== Fetching Our Tweets from Database ===")

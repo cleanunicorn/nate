@@ -123,17 +123,28 @@ def twitter_post(model, dry_run, thread, sample):
             click.echo("Dry run - tweet not posted")
 
 
-@twitter.command(name="replies")
+@twitter.command(name="reply")
 @click.option(
     "--local",
     "-l",
     is_flag=True,
     help="Use locally stored tweets from database",
 )
-
-def twitter_replies(local):
-    """List conversations that need replies"""
-    click.echo(f"is local: {local}")
+@click.option(
+    "--dry-run", 
+    "-d", 
+    is_flag=True, 
+    help="Generate tweet without posting"
+)
+@click.option(
+    "--model",
+    "-m",
+    type=click.Choice(["openai", "ollama", "openrouter"]),
+    default="openai",
+    help="AI model to use for tweet generation",
+)
+def twitter_reply(local, dry_run, model):
+    """Generate and post replies to conversations"""
     # Initialize Twitter client
     client = TwitterClient(
         api_key=getenv("TWITTER_API_KEY"),
@@ -155,9 +166,17 @@ def twitter_replies(local):
         click.echo("No conversations need replies")
         return
 
-    # Display conversations needing replies
-    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+    if model == "openai":
+        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
+    elif model == "ollama":
+        generator = TweetGeneratorOllama()
+    else:
+        click.echo("OpenRouter is currently disabled")
+        return
     
+    # Display and process conversations needing replies
+    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+
     for conv_id, conversation in pending_replies.items():
         click.echo(f"Conversation ID: {conv_id}")
         click.echo("Participants: " + ", ".join(conversation["participants"]))
@@ -173,6 +192,29 @@ def twitter_replies(local):
         for tweet in sorted_tweets:
             click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
             click.echo(f"{tweet['text']}")
+
+        # Generate reply
+        timeline = [{"username": t["username"], "text": t["text"]} for t in sorted_tweets]
+        conversation_text = "\n".join([f"@{t['username']}: {t['text']}" for t in sorted_tweets])
+        
+        reply = generator.create_reply(tweets=timeline, conversation=conversation_text)
+        
+        click.echo("\nGenerated Reply:")
+        click.echo("---")
+        click.echo(reply.text)
+        click.echo("---")
+        
+        if not dry_run:
+            # Get the last tweet in conversation to reply to
+            last_tweet_id = sorted_tweets[-1]["id"]
+            client.post_reply(
+                text=reply.text,
+                reply_to_tweet_id=last_tweet_id,
+                conversation_id=conv_id
+            )
+            click.echo("Reply posted successfully!")
+        else:
+            click.echo("Dry run - reply not posted")
         
         click.echo("\n" + "-"*50 + "\n")
     """List conversations that need replies"""
