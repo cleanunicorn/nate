@@ -297,6 +297,21 @@ class TwitterClient:
         # Process each mention
         for tweet in non_spam_mentions:
             if tweet.conversation_id not in conversations:
+                # Get the author info for the mention
+                author = next(user for user in mentions.includes["users"] if user.id == tweet.author_id)
+                
+                # Add the mention tweet itself first
+                mention_data = {
+                    "id": tweet.id,
+                    "text": tweet.text,
+                    "author_id": tweet.author_id,
+                    "conversation_id": tweet.conversation_id,
+                    "username": author.username,
+                    "created_at": tweet.created_at
+                }
+                self.add_tweet_to_conversation(conversations, mention_data, tweet.conversation_id)
+                
+                # Then try to get the rest of the conversation
                 conversation_tweets = self.get_tweets_for_conversation(tweet.conversation_id)
                 for tweet_data in conversation_tweets:
                     self.add_tweet_to_conversation(conversations, tweet_data, tweet.conversation_id)
