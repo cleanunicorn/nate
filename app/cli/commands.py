@@ -9,6 +9,7 @@ from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.ai.TweetGeneratorOllama import TweetGeneratorOllama
 from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
 from app.utils.utils import clean_tweet
+from app.db.models.Tweet_model import Tweet
 
 # Load environment variables at module level
 load_dotenv()
@@ -120,3 +121,183 @@ def twitter_post(model, dry_run, thread, sample):
             click.echo("Tweet posted successfully!")
         else:
             click.echo("Dry run - tweet not posted")
+
+
+@twitter.command(name="replies")
+@click.option(
+    "--local",
+    "-l",
+    is_flag=True,
+    help="Use locally stored tweets from database",
+)
+
+def twitter_replies(local):
+    """List conversations that need replies"""
+    click.echo(f"is local: {local}")
+    # Initialize Twitter client
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+    )
+
+    # Get conversations either from local DB or Twitter API
+    conversations = client.get_conversations(use_local=local)
+
+    # Filter for conversations needing replies
+    pending_replies = {
+        conv_id: conv for conv_id, conv in conversations.items() 
+        if client.needs_reply(conv)
+    }
+
+    if not pending_replies:
+        click.echo("No conversations need replies")
+        return
+
+    # Display conversations needing replies
+    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+    
+    for conv_id, conversation in pending_replies.items():
+        click.echo(f"Conversation ID: {conv_id}")
+        click.echo("Participants: " + ", ".join(conversation["participants"]))
+        click.echo(f"Last activity: {conversation['last_tweet_time']}")
+        click.echo("\nTweets:")
+        
+        # Sort tweets by creation time
+        sorted_tweets = sorted(
+            conversation["tweets"], 
+            key=lambda x: x["created_at"]
+        )
+        
+        for tweet in sorted_tweets:
+            click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
+            click.echo(f"{tweet['text']}")
+        
+        click.echo("\n" + "-"*50 + "\n")
+    """List conversations that need replies"""
+    # Initialize Twitter client
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+    )
+
+    if local:
+        # Get tweets from local database
+        session = client.Session()
+        try:
+            stored_tweets = session.query(Tweet).all()
+            
+            # Convert stored tweets to the format expected by _process_tweets_into_conversations
+            tweets_data = []
+            for tweet in stored_tweets:
+                tweets_data.append({
+                    "id": tweet.tweet_id,
+                    "text": tweet.text,
+                    "author_id": tweet.author_id,
+                    "username": tweet.username,
+                    "conversation_id": tweet.conversation_id,
+                    "created_at": tweet.created_at,
+                })
+            
+            # Process tweets into conversations
+            conversations = {}
+            for tweet in tweets_data:
+                conv_id = tweet["conversation_id"]
+                if conv_id not in conversations:
+                    conversations[conv_id] = {
+                        "tweets": [],
+                        "participants": set(),
+                        "last_tweet_time": None,
+                        "our_last_tweet_time": None
+                    }
+                
+                conversations[conv_id]["tweets"].append(tweet)
+                conversations[conv_id]["participants"].add(tweet["username"])
+                
+                # Track latest tweet time
+                tweet_time = tweet["created_at"]
+                if (conversations[conv_id]["last_tweet_time"] is None or 
+                    tweet_time > conversations[conv_id]["last_tweet_time"]):
+                    conversations[conv_id]["last_tweet_time"] = tweet_time
+                
+                # Track our last tweet time if we're the author
+                if tweet["username"] == client.get_own_username():
+                    if (conversations[conv_id]["our_last_tweet_time"] is None or
+                        tweet_time > conversations[conv_id]["our_last_tweet_time"]):
+                        conversations[conv_id]["our_last_tweet_time"] = tweet_time
+            
+            # Get pending replies from processed conversations
+            pending_replies = {
+                conv_id: conv for conv_id, conv in conversations.items() 
+                if client.needs_reply(conv)
+            }
+            
+        finally:
+            session.close()
+    else:
+        # Get pending replies from Twitter API
+        pending_replies = client.get_pending_replies()
+
+    if not pending_replies:
+        click.echo("No conversations need replies")
+        return
+
+    # Display conversations needing replies
+    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+    
+    for conv_id, conversation in pending_replies.items():
+        click.echo(f"Conversation ID: {conv_id}")
+        click.echo("Participants: " + ", ".join(conversation["participants"]))
+        click.echo(f"Last activity: {conversation['last_tweet_time']}")
+        click.echo("\nTweets:")
+        
+        # Sort tweets by creation time
+        sorted_tweets = sorted(
+            conversation["tweets"], 
+            key=lambda x: x["created_at"]
+        )
+        
+        for tweet in sorted_tweets:
+            click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
+            click.echo(f"{tweet['text']}")
+        
+        click.echo("\n" + "-"*50 + "\n")
+    """List conversations that need replies"""
+    # Initialize Twitter client
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+    )
+
+    # Get pending replies
+    pending_replies = client.get_pending_replies()
+
+    if not pending_replies:
+        click.echo("No conversations need replies")
+        return
+
+    # Display conversations needing replies
+    click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
+    
+    for conv_id, conversation in pending_replies.items():
+        click.echo(f"Conversation ID: {conv_id}")
+        click.echo("Participants: " + ", ".join(conversation["participants"]))
+        click.echo(f"Last activity: {conversation['last_tweet_time']}")
+        click.echo("\nTweets:")
+        
+        # Sort tweets by creation time
+        sorted_tweets = sorted(
+            conversation["tweets"], 
+            key=lambda x: x["created_at"]
+        )
+        
+        for tweet in sorted_tweets:
+            click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
+            click.echo(f"{tweet['text']}")
+        
+        click.echo("\n" + "-"*50 + "\n")
