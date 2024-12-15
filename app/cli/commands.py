@@ -153,6 +153,9 @@ def twitter_reply(local, dry_run, model):
         access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
     )
 
+    # Get bot's username
+    bot_username = client.get_own_username()
+
     # Get conversations either from local DB or Twitter API
     conversations = client.get_conversations(use_local=local)
 
@@ -167,9 +170,9 @@ def twitter_reply(local, dry_run, model):
         return
 
     if model == "openai":
-        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
+        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"), bot_username=bot_username)
     elif model == "ollama":
-        generator = TweetGeneratorOllama()
+        generator = TweetGeneratorOllama(bot_username=bot_username)
     else:
         click.echo("OpenRouter is currently disabled")
         return
@@ -195,7 +198,10 @@ def twitter_reply(local, dry_run, model):
 
         # Generate reply
         timeline = [{"username": t["username"], "text": t["text"]} for t in sorted_tweets]
-        conversation_text = "\n".join([f"@{t['username']}: {t['text']}" for t in sorted_tweets])
+        conversation_text = "\n".join([
+            f"Tweet from @{t['username']}:\n{t['text']}" 
+            for t in sorted_tweets
+        ])
         
         reply = generator.create_reply(tweets=timeline, conversation=conversation_text)
         

@@ -12,8 +12,8 @@ from app.utils.utils import format_tweet_timeline
 
 
 class TweetGeneratorOpenAI:
-    def __init__(self, api_key: str):
-        self.system = SYSTEM_PROMPT
+    def __init__(self, api_key: str, bot_username: str):
+        self.system = SYSTEM_PROMPT.format(bot_username=bot_username)
         self.prompt = USER_PROMPT_TWITTER
         self.client = OpenAI(api_key=api_key)
 
