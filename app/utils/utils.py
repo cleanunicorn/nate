@@ -37,7 +37,7 @@ def is_likely_spam(tweet_data):
         spam_indicators += 1
         
     # Check for multiple @ mentions (more than 3)
-    if text.count("@") > 3:
+    if text.count("@") > 2:
         spam_indicators += 1
         
     # Check for common spam phrases
@@ -51,4 +51,4 @@ def is_likely_spam(tweet_data):
         spam_indicators += 0.5
         
     # Consider it spam if it has multiple spam indicators
-    return spam_indicators >= 2
+    return spam_indicators >= 3

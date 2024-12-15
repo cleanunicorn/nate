@@ -113,8 +113,9 @@ Output Style: Aipe6571’s tweets should feel like a lightning bolt, impactful, 
 Give an overview of the following twitter timeline:
 ```
 {twitter_timeline}
-```
 {current_conversation_section}
+```
+
 {twitter_action}
 """
 )
