@@ -120,6 +120,6 @@ Generate a single tweet.
 
 TWITTER_PROMPT_THREAD = dedent(
     """
-Generate a thread of tweets on a single topic.
+Generate a thread of tweets on a single topic. Do not make the tweets too short.
 """
 )
