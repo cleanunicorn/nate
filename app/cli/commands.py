@@ -1,6 +1,7 @@
 """CLI commands for the Nate social media assistant application."""
 
 from os import getenv
+from pathlib import Path
 
 import click
 from dotenv import load_dotenv
@@ -120,3 +121,64 @@ def twitter_post(model, dry_run, thread, sample):
             click.echo("Tweet posted successfully!")
         else:
             click.echo("Dry run - tweet not posted")
+
+
+@twitter.command(name="follow")
+@click.option("--users", "-u", help="Comma-separated list of usernames to follow")
+@click.option(
+    "--file",
+    "-f",
+    type=click.Path(exists=True),
+    help="File containing usernames (one per line)",
+)
+def follow_users(users, file):
+    """Follow multiple users specified directly or from a file."""
+    if not users and not file:
+        click.echo("Error: Please provide either --users or --file option")
+        return
+
+    usernames = set()
+
+    if users:
+        # Add usernames from command line
+        usernames.update(username.strip() for username in users.split(","))
+
+    if file:
+        # Add usernames from file
+        file_path = Path(file)
+        try:
+            with file_path.open("r", encoding="utf-8") as f:
+                file_usernames = [line.strip() for line in f if line.strip()]
+                usernames.update(file_usernames)
+        except Exception as e:
+            click.echo(f"Error reading file: {e}")
+            return
+
+    if not usernames:
+        click.echo("No valid usernames provided")
+        return
+
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+    )
+
+    success_count = 0
+    for username in usernames:
+        try:
+            # Remove '@' if present
+            if username.startswith("@"):
+                username = username[1:]
+
+            # Assuming there's an existing follow_user function in the API client
+            if client.follow_user(username):
+                click.echo(f"Successfully followed @{username}")
+                success_count += 1
+            else:
+                click.echo(f"Failed to follow @{username}")
+        except Exception as e:
+            click.echo(f"Failed to follow @{username}: {e}")
+
+    click.echo(f"\nFollowed {success_count} out of {len(usernames)} users")
