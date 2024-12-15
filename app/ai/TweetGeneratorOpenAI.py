@@ -1,6 +1,6 @@
 from openai import OpenAI
 
-from app.ai.models import TweetFormat, TweetThreadFormat
+from app.ai.models import TweetModel, TweetThreadModel
 from config.prompts import (
     SYSTEM_PROMPT,
     USER_PROMPT_TWITTER,
@@ -17,8 +17,8 @@ class TweetGeneratorOpenAI:
         self.client = OpenAI(api_key=api_key)
 
     def create_tweet(
-        self, tweets: str, thread: bool = False
-    ) -> TweetFormat | TweetThreadFormat:
+        self, timeline: list[dict], thread: bool = False
+    ) -> TweetModel | TweetThreadModel:
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=[
@@ -26,18 +26,18 @@ class TweetGeneratorOpenAI:
                 {
                     "role": "user",
                     "content": self.prompt.format(
-                        twitter_timeline=format_tweet_timeline(tweets),
+                        twitter_timeline=format_tweet_timeline(timeline),
                         twitter_action=TWITTER_PROMPT_THREAD
                         if thread
                         else TWITTER_PROMPT_SINGLE_TWEET,
                     ),
                 },
             ],
-            response_format=TweetThreadFormat if thread else TweetFormat,
+            response_format=TweetThreadModel if thread else TweetModel,
         )
 
         content = response.choices[0].message.parsed
         return content
 
-    def create_thread(self, tweets: str) -> TweetThreadFormat:
-        return self.create_tweet(tweets=tweets, thread=True)
+    def create_thread(self, timeline: list[dict]) -> TweetThreadModel:
+        return self.create_tweet(timeline=timeline, thread=True)

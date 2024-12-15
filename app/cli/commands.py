@@ -1,6 +1,7 @@
 """CLI commands for the Nate social media assistant application."""
 
 from os import getenv
+import json
 
 import click
 from dotenv import load_dotenv
@@ -63,15 +64,13 @@ def twitter_post(model, dry_run, thread, sample):
     else:
         timeline = client.get_timeline()
 
-    simplified_timeline = [
-        {"username": t["username"], "text": t["text"]} for t in timeline
-    ]
-
     # Select generator based on model option
     if model == "openai":
         generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
     elif model == "ollama":
-        generator = TweetGeneratorOllama()
+        click.echo("Ollama is currently disabled")
+        return
+        # generator = TweetGeneratorOllama()
     else:
         click.echo("OpenRouter is currently disabled")
         return
@@ -79,38 +78,35 @@ def twitter_post(model, dry_run, thread, sample):
 
     # Generate new tweet or thread
     if thread:
-        new_tweet_thread = generator.create_thread(tweets=simplified_timeline)
+        new_tweet_thread = generator.create_thread(timeline=timeline)
 
-        new_topic = new_tweet_thread.topic
-        new_tweets = new_tweet_thread.tweets
-
-        # Clean tweets and filter out empty ones
-        new_tweets = [clean_tweet(tweet) for tweet in new_tweets]
-        new_tweets = [tweet for tweet in new_tweets if len(tweet) > 0]
+        # Clean tweets
+        for tweet in new_tweet_thread.tweets:
+            tweet.text = clean_tweet(tweet.text)
 
         click.echo("Generated Thread:")
-        click.echo(f"Topic: {new_topic}")
+        click.echo(f"Topic: {new_tweet_thread.topic}")
         click.echo("---")
-        for i, tweet in enumerate(new_tweets, 1):
+        for i, tweet in enumerate(new_tweet_thread.tweets, 1):
             click.echo(f"Tweet {i}:")
-            click.echo(tweet)
+            click.echo(f"Quote Tweet ID: {tweet.quote_tweet_id}")
+            click.echo(tweet.text)
             click.echo("---")
 
         if not dry_run and thread:  # Only post if there are valid tweets
-            client.post_thread(new_tweets)
+            client.post_thread(new_tweet_thread)
             click.echo("Thread posted successfully!")
         elif not thread:
             click.echo("No valid tweets generated")
         else:
             click.echo("Dry run - thread not posted")
     else:
-        new_post = generator.create_tweet(tweets=simplified_timeline)
+        new_tweet = generator.create_tweet(timeline=timeline)
 
-        new_topic = new_post.topic
-        new_tweet = clean_tweet(new_post.text)
+        new_tweet.tweet.text = clean_tweet(new_tweet.tweet.text)
 
         click.echo("Generated Tweet:")
-        click.echo(f"Topic: {new_topic}")
+        click.echo(f"Topic: {new_tweet.topic}")
         click.echo("---")
         click.echo(new_tweet)
         click.echo("---")

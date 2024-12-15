@@ -114,12 +114,14 @@ Give an overview of the following twitter timeline:
 
 TWITTER_PROMPT_SINGLE_TWEET = dedent(
     """
-Generate a single tweet.
+Create a single about the most interesting subject.
 """
 )
 
 TWITTER_PROMPT_THREAD = dedent(
     """
-Generate a thread of tweets on a single topic. Do not make the tweets too short.
+Create a thread of tweets on a single topic. Do not make the tweets too short.
+
+Quote some tweets by their id. Some tweets should not quote other tweets.
 """
 )

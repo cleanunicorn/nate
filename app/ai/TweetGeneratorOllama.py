@@ -1,6 +1,6 @@
 from ollama import chat
 
-from app.ai.models import TweetFormat, TweetThreadFormat
+from app.ai.models import TweetModel, TweetThreadModel
 from config.prompts import (
     SYSTEM_PROMPT,
     USER_PROMPT_TWITTER,
@@ -45,18 +45,18 @@ class TweetGeneratorOllama:
                 "num_predict": 720,
                 "num_ctx": 16384,
             },
-            format=TweetThreadFormat.model_json_schema()
+            format=TweetThreadModel.model_json_schema()
             if thread
-            else TweetFormat.model_json_schema(),
+            else TweetModel.model_json_schema(),
         )
 
         # Extract the tweets from the response
         if thread:
-            content = TweetThreadFormat.model_validate_json(
+            content = TweetThreadModel.model_validate_json(
                 response["message"]["content"]
             )
         else:
-            content = TweetFormat.model_validate_json(response["message"]["content"])
+            content = TweetModel.model_validate_json(response["message"]["content"])
 
         return content
 
