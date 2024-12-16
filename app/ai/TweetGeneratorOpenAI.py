@@ -19,20 +19,23 @@ class TweetGeneratorOpenAI:
     def create_tweet(
         self, timeline: list[dict], thread: bool = False
     ) -> TweetModel | TweetThreadModel:
+        
+        messages=[
+            {"role": "system", "content": self.system},
+            {
+                "role": "user",
+                "content": self.prompt.format(
+                    twitter_timeline=format_tweet_timeline(timeline),
+                    twitter_action=TWITTER_PROMPT_THREAD
+                    if thread
+                    else TWITTER_PROMPT_SINGLE_TWEET,
+                ),
+            },
+        ]
+
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": self.system},
-                {
-                    "role": "user",
-                    "content": self.prompt.format(
-                        twitter_timeline=format_tweet_timeline(timeline),
-                        twitter_action=TWITTER_PROMPT_THREAD
-                        if thread
-                        else TWITTER_PROMPT_SINGLE_TWEET,
-                    ),
-                },
-            ],
+            messages=messages,
             response_format=TweetThreadModel if thread else TweetModel,
         )
 

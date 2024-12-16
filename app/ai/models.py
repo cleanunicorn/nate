@@ -2,17 +2,13 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class Tweet(BaseModel):
+class TweetModel(BaseModel):
     quote_tweet_id: Optional[int]
     text: str
     username: str
 
 
 class TweetThreadModel(BaseModel):
-    tweets: list[Tweet]
+    tweets: list[TweetModel]
     topic: str
 
-
-class TweetModel(BaseModel):
-    tweet: Tweet
-    topic: str

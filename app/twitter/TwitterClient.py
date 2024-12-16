@@ -13,8 +13,8 @@ class TwitterClient:
 
     def post_tweet(self, tweet: TweetModel):
         self.client.create_tweet(
-            text=tweet.tweet.text,
-            quote_tweet_id=tweet.tweet.quote_tweet_id,
+            text=tweet.text,
+            quote_tweet_id=tweet.quote_tweet_id,
         )
 
     def get_timeline(self):
@@ -77,13 +77,36 @@ class TwitterClient:
             )
             previous_id = response.data["id"]
 
+    def follow_user(self, username) -> bool:
+        """
+        Follow a user given their username
+
+        Args:
+            username (str): The username of the account to follow
+
+        Returns:
+            bool: True if successfully followed, False otherwise
+        """
+        try:
+            # First get the user ID from username
+            user = self.client.get_user(username=username, user_auth=True)
+            if not user.data:
+                return False
+
+            # Follow the user using their ID
+            self.client.follow_user(user.data.id)
+            return True
+        except Exception as e:
+            print(f"Error following user: {e}")
+            return False
+
     def get_sample_timeline(self):
         """Return sample timeline data for testing"""
 
         sample_timeline = [
             {
                 "username": "Darrenlautf",
-                "text": "Huge\ud83d\udc40 https://t.co/sdAx1SkiUN",
+                "text": "Huge https://t.co/sdAx1SkiUN",
                 "id": "1864611111111111111",
             },
             {
@@ -108,12 +131,12 @@ class TwitterClient:
             },
             {
                 "username": "evan_van_ness",
-                "text": "RT @SrMiguelV: 2017 nunca muri\u00f3.",
+                "text": "RT @SrMiguelV: 2017 nunca muri.",
                 "id": "1864611111111111116",
             },
             {
                 "username": "Darrenlautf",
-                "text": "RT @BeamFDN: \ud83c\udf08Beam\u2019s biggest announcement ever is finally here.\n\n\u25b6\ufe0fWatch the video below.\n\nFour projects shaping our future:\n\n1. Global Exp\u2026",
+                "text": "RT @BeamFDN: Beams biggest announcement ever is finally here.\n\nWatch the video below.\n\nFour projects shaping our future:\n\n1. Global Exp",
                 "id": "1864611111111111117",
             },
             {
@@ -123,17 +146,17 @@ class TwitterClient:
             },
             {
                 "username": "RoundtableSpace",
-                "text": "PARTNERSHIP: Guess what\u2019s cuter than unicorns and it actually exists. \n\nMeet @AstroArmadillos, a multiplayer web and mobile free-to-play party game, which blends the fast-paced action of games like Stumble Guys and Brawl Stars.\n\nAstro Armadillos is redefining Web3 education by\u2026 https://t.co/MIiqgz7r2A https://t.co/zatOy2NRap",
+                "text": "PARTNERSHIP: Guess whats cuter than unicorns and it actually exists. \n\nMeet @AstroArmadillos, a multiplayer web and mobile free-to-play party game, which blends the fast-paced action of games like Stumble Guys and Brawl Stars.\n\nAstro Armadillos is redefining Web3 education by https://t.co/MIiqgz7r2A https://t.co/zatOy2NRap",
                 "id": "1864611111111111119",
             },
             {
                 "username": "libevm",
-                "text": "\u201cS/o - Rust\u201d - @gakonst \n\nat @ethmelbourne dec meetup https://t.co/0f1w4abAvL",
+                "text": "S/o - Rust - @gakonst \n\nat @ethmelbourne dec meetup https://t.co/0f1w4abAvL",
                 "id": "1864611111111111120",
             },
             {
                 "username": "LefterisJP",
-                "text": "Good morning \u2601\ufe0f\n\nWish you all a beautiful day ahead with a \ud83d\udcf8 of a hooded crow posing for my camera.\n\n\ud83c\udde9\ud83c\uddea Nebelkr\u00e4he | \ud83c\uddf5\ud83c\uddf1 \u039a\u03bf\u03c5\u03c1\u03bf\u03cd\u03bd\u03b1 | \ud83c\uddec\ud83c\uddf7 \u039a\u03bf\u03c5\u03c1\u03bf\u03cd\u03bd\u03b1 | \ud83c\uddfa\ud83c\udde6 \u0412\u043e\u0440\u043e\u043d\u0430 \u0441\u0456\u0440\u0430 https://t.co/meh3nVNbUt",
+                "text": "Good morning \n\nWish you all a beautiful day ahead with a  of a hooded crow posing for my camera.\n\n Nebelkrhe |   |   |    https://t.co/meh3nVNbUt",
                 "id": "1864611111111111121",
             },
             {
@@ -143,7 +166,7 @@ class TwitterClient:
             },
             {
                 "username": "LefterisJP",
-                "text": "@evan_van_ness @rotkiapp @DaniPopes @Keyvankambakhsh @ryegoree @ensdomains @_SamWilsn_ rotki mentioned !! \ud83e\udd73",
+                "text": "@evan_van_ness @rotkiapp @DaniPopes @Keyvankambakhsh @ryegoree @ensdomains @_SamWilsn_ rotki mentioned !! ",
                 "id": "1864611111111111123",
             },
             {
@@ -153,12 +176,12 @@ class TwitterClient:
             },
             {
                 "username": "RoundtableSpace",
-                "text": "MARKET CARNAGE LEAVES MEMECOINS WRECKED\n\nBitcoin dipped below $95K again, triggering chaos across the market. Memecoins took a brutal hit - DOGE crashed 12% to under $0.40, SHIB dropped 15%, and FLOKI and BONK nosedived over 16%.\n\nEthereum slid 6%, while over $700M in\u2026 https://t.co/A6s0RmO5Dl https://t.co/BVzFkUWPEy",
+                "text": "MARKET CARNAGE LEAVES MEMECOINS WRECKED\n\nBitcoin dipped below $95K again, triggering chaos across the market. Memecoins took a brutal hit - DOGE crashed 12% to under $0.40, SHIB dropped 15%, and FLOKI and BONK nosedived over 16%.\n\nEthereum slid 6%, while over $700M in https://t.co/A6s0RmO5Dl https://t.co/BVzFkUWPEy",
                 "id": "1864611111111111125",
             },
             {
                 "username": "gregthegreek",
-                "text": "@ameensol @MolochDAO I\u2019ll help take some of the workload off probably not the best writer though",
+                "text": "@ameensol @MolochDAO Ill help take some of the workload off probably not the best writer though",
                 "id": "1864611111111111126",
             },
             {
@@ -168,17 +191,17 @@ class TwitterClient:
             },
             {
                 "username": "halvarflake",
-                "text": "RT @SeverinWeiland: Carsten Reymann war B\u00fcroleiter Lindners im Bundestag (20/21), als Beamter folgte er ihm ins BMF, lie\u00df sich dann f\u00fcr das\u2026",
+                "text": "RT @SeverinWeiland: Carsten Reymann war Broleiter Lindners im Bundestag (20/21), als Beamter folgte er ihm ins BMF, lie sich dann fr das",
                 "id": "1864611111111111128",
             },
             {
                 "username": "tarunchitra",
-                "text": "RT @tarunchitra: @buchmanster What it could be: interesting mechanisms to help risk transferrence in science, reforming peer review, using\u2026",
+                "text": "RT @tarunchitra: @buchmanster What it could be: interesting mechanisms to help risk transferrence in science, reforming peer review, using",
                 "id": "1864611111111111128",
             },
             {
                 "username": "halvarflake",
-                "text": "RT @udunadan: An interesting case of impact of exploit development has on mental health, I think, shared by many, just like the career doub\u2026",
+                "text": "RT @udunadan: An interesting case of impact of exploit development has on mental health, I think, shared by many, just like the career doub",
                 "id": "1864611111111111129",
             },
             {
@@ -198,7 +221,7 @@ class TwitterClient:
             },
             {
                 "username": "animocabrands",
-                "text": "RT @TinyTapEDU: NFT projects are waking up the idea that children are the future. \n\nWe welcome Lazy Lion cubs to TinyTap as they partake in\u2026",
+                "text": "RT @TinyTapEDU: NFT projects are waking up the idea that children are the future. \n\nWe welcome Lazy Lion cubs to TinyTap as they partake in",
                 "id": "1864611111111111133",
             },
             {
@@ -213,32 +236,32 @@ class TwitterClient:
             },
             {
                 "username": "RoundtableSpace",
-                "text": "BUILDING TELEGRAM MINI APPS: CODE YOUR WAY INTO WEB 3.0 HISTORY\n\nTelegram\u2019s mini apps are the real deal for devs hungry to innovate. \n\nHere\u2019s the play: Create bots, build with HTML/CSS/JS, and link your app through the Telegram Bot API. Test it, deploy it, and you\u2019re live. It\u2019s\u2026 https://t.co/NYG2pMOlW3 https://t.co/Udw9g3PsW6",
+                "text": "BUILDING TELEGRAM MINI APPS: CODE YOUR WAY INTO WEB 3.0 HISTORY\n\nTelegrams mini apps are the real deal for devs hungry to innovate. \n\nHeres the play: Create bots, build with HTML/CSS/JS, and link your app through the Telegram Bot API. Test it, deploy it, and youre live. Its https://t.co/NYG2pMOlW3 https://t.co/Udw9g3PsW6",
                 "id": "18646111111111111386",
             },
             {
                 "username": "tarunchitra",
-                "text": "RT @KibaGateaux: Funnily enough, @bioprotocol hired me to design their tokenomics and protocol so I built contracts that had some cryptoeco\u2026",
+                "text": "RT @KibaGateaux: Funnily enough, @bioprotocol hired me to design their tokenomics and protocol so I built contracts that had some cryptoeco",
                 "id": "1864611111111111136",
             },
             {
                 "username": "etcnft",
-                "text": "GM! I woke up and chose \ud835\udd25\ud835\udd1e\ud835\udd2b\ud835\udd21\ud835\udd30\ud835\udd2c\ud835\udd2a\ud835\udd22 \ud83d\ude0e https://t.co/EKmHgYA24I https://t.co/tk20IVMK3T",
+                "text": "GM! I woke up and chose   https://t.co/EKmHgYA24I https://t.co/tk20IVMK3T",
                 "id": "18646111111111111396",
             },
             {
                 "username": "MemeRadarTK",
-                "text": "The best Desci Meme List update\n\nNext ticker added is $scihub\n\nReason\n\n- The leading representative of the open science movement on web2 \n\n- Their website has 13 years of history. \n\n- The community shows strong support and is carrying out many meaningful actions.\n\n- They also\u2026 https://t.co/ALNJPn0taq https://t.co/7DtvLp5Fky https://t.co/SgesIbxOqD",
+                "text": "The best Desci Meme List update\n\nNext ticker added is $scihub\n\nReason\n\n- The leading representative of the open science movement on web2 \n\n- Their website has 13 years of history. \n\n- The community shows strong support and is carrying out many meaningful actions.\n\n- They also https://t.co/ALNJPn0taq https://t.co/7DtvLp5Fky https://t.co/SgesIbxOqD",
                 "id": "1864611111111111137",
             },
             {
                 "username": "ervango",
-                "text": "RT @slayphindotweb3: proud owner of 1 of the 4 ancient @Dragonsonape \n\ndoes it match with my golden dragon @MutantHounds / @MH_Inscriptions\u2026",
+                "text": "RT @slayphindotweb3: proud owner of 1 of the 4 ancient @Dragonsonape \n\ndoes it match with my golden dragon @MutantHounds / @MH_Inscriptions",
                 "id": "1864611111111111138",
             },
             {
                 "username": "ervango",
-                "text": "RT @houndpound69: :Alliance of Legends:\n\nThe night was thick with tension as the five factions gathered under  the murky crimson light of t\u2026",
+                "text": "RT @houndpound69: :Alliance of Legends:\n\nThe night was thick with tension as the five factions gathered under  the murky crimson light of t",
                 "id": "1864611111111111139",
             },
             {
@@ -258,7 +281,7 @@ class TwitterClient:
             },
             {
                 "username": "LeonidasNFT",
-                "text": "RT @cryptolution101: $DOG is backed by Bitcoin \ud83d\udfe7 https://t.co/k8Msf7aK8p",
+                "text": "RT @cryptolution101: $DOG is backed by Bitcoin  https://t.co/k8Msf7aK8p",
                 "id": "1864611111111111143",
             },
             {
@@ -268,7 +291,7 @@ class TwitterClient:
             },
             {
                 "username": "LeonidasNFT",
-                "text": "RT @JOHNRICK17XX: you\u2019re not ready. $DOG (Bitcoin) https://t.co/aVHR0eQjq8",
+                "text": "RT @JOHNRICK17XX: youre not ready. $DOG (Bitcoin) https://t.co/aVHR0eQjq8",
                 "id": "1864611111111111145",
             },
             {
@@ -278,8 +301,13 @@ class TwitterClient:
             },
             {
                 "username": "LeonidasNFT",
-                "text": "RT @CoinsWeb3: When $DOG (Bitcoin) hits 1 billion market cap, everyone will claim they saw it coming. \n\nBut the real question is, did they\u2026",
+                "text": "RT @CoinsWeb3: When $DOG (Bitcoin) hits 1 billion market cap, everyone will claim they saw it coming. \n\nBut the real question is, did they",
                 "id": "1864611111111111147",
+            },
+            {
+                "username": "GigelNFT",
+                "text": "Hey @PermanentLoss, what's up?",
+                "id": "1864611111111111148",
             },
         ]
 
