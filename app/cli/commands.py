@@ -68,8 +68,6 @@ def twitter_post(dry_run, thread, sample):
         tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
         new_tweet_thread = tone_agent.adjust_tone_thread(new_tweet_thread)
 
-        breakpoint()
-
         click.echo("Generated Thread:")
         click.echo(f"Topic: {new_tweet_thread.topic}")
         click.echo("---")
