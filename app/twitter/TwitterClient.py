@@ -4,27 +4,6 @@ from app.db.models.Tweet_model import Tweet
 from app.db.models.Storage_model import Storage
 from datetime import datetime, timezone
 from app.utils.utils import is_likely_spam
-
-
-class TwitterClient:
-    def __init__(
-        self,
-        api_key,
-        api_secret,
-        access_token,
-        access_token_secret,
-        db_path="tweets.db",
-    ):
-        # First, create auth object
-        auth = tweepy.OAuthHandler(api_key, api_secret)
-        auth.set_access_token(access_token, access_token_secret)
-
-        # Create API object for v1.1 endpoints that might be needed
-        self.api = tweepy.API(auth)
-
-        # Create Client object with bearer token for v2 endpoints
-
-
 from app.ai.models import TweetModel, TweetThreadModel
 
 
@@ -178,6 +157,7 @@ class TwitterClient:
             ],
             media_fields=["url"],
             user_fields=["username"],
+            user_auth=True,
         )
 
         homepage_tweets = []

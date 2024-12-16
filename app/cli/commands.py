@@ -224,7 +224,7 @@ def twitter_reply(local, dry_run):
 
         # Adjust tone of tweet
         tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
-        reply = tone_agent.adjust_tone_single_tweet(reply)        
+        reply = tone_agent.adjust_tone_single_tweet(reply)
 
         click.echo("\nGenerated Reply:")
         click.echo("---")
@@ -242,4 +242,3 @@ def twitter_reply(local, dry_run):
             click.echo("Reply posted successfully!")
         else:
             click.echo("Dry run - reply not posted")
-
