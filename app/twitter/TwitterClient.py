@@ -488,8 +488,6 @@ class TwitterClient:
     def needs_reply(self, conversation):
         """Check if a conversation needs our reply"""
 
-        return True
-
         # Skip if we were the last to tweet
         if (
             conversation["our_last_tweet_time"] is not None
