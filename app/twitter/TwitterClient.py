@@ -185,16 +185,16 @@ class TwitterClient:
         """Post a thread of tweets"""
         # Post first tweet
         response = self.client.create_tweet(
-            text=tweets[0].tweet.text,
-            quote_tweet_id=tweets[0].tweet.quote_tweet_id,
+            text=tweets.tweets[0].text,
+            quote_tweet_id=tweets.tweets[0].quote_tweet_id,
         )
         previous_id = response.data["id"]
 
         # Post rest of thread in reply to previous tweet
-        for tweet in tweets[1:]:
+        for tweet in tweets.tweets[1:]:
             response = self.client.create_tweet(
-                text=tweet.tweet.text,
-                quote_tweet_id=tweet.tweet.quote_tweet_id,
+                text=tweet.text,
+                quote_tweet_id=tweet.quote_tweet_id,
                 in_reply_to_tweet_id=previous_id,
             )
             previous_id = response.data["id"]
