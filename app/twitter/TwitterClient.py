@@ -61,6 +61,29 @@ class TwitterClient:
             )
             previous_id = response.data["id"]
 
+    def follow_user(self, username) -> bool:
+        """
+        Follow a user given their username
+
+        Args:
+            username (str): The username of the account to follow
+
+        Returns:
+            bool: True if successfully followed, False otherwise
+        """
+        try:
+            # First get the user ID from username
+            user = self.client.get_user(username=username, user_auth=True)
+            if not user.data:
+                return False
+
+            # Follow the user using their ID
+            self.client.follow_user(user.data.id)
+            return True
+        except Exception as e:
+            print(f"Error following user: {e}")
+            return False
+
     def get_sample_timeline(self):
         """Return sample timeline data for testing"""
 
