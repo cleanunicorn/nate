@@ -13,28 +13,6 @@ class TwitterClient:
         api_secret,
         access_token,
         access_token_secret,
-        db_path="tweets.db",
-    ):
-        # First, create auth object
-        auth = tweepy.OAuthHandler(api_key, api_secret)
-        auth.set_access_token(access_token, access_token_secret)
-
-        # Create API object for v1.1 endpoints that might be needed
-        self.api = tweepy.API(auth)
-
-        # Create Client object with bearer token for v2 endpoints
-
-
-from app.ai.models import TweetModel, TweetThreadModel
-
-
-class TwitterClient:
-    def __init__(
-        self,
-        api_key,
-        api_secret,
-        access_token,
-        access_token_secret,
         bearer_token,
         db_path="tweets.db",
     ):
@@ -71,7 +49,7 @@ class TwitterClient:
             if existing_tweet:
                 # Update existing tweet if needed
                 existing_tweet.fetched_for_user = fetched_for_user
-                existing_tweet.created_at = datetime.now(timezone.utc)
+                existing_tweet.created_at = tweet_data.get("created_at", datetime.now(timezone.utc))
             else:
                 # Create new tweet if it doesn't exist
                 tweet = Tweet(
@@ -80,42 +58,43 @@ class TwitterClient:
                     author_id=tweet_data["author_id"],
                     conversation_id=tweet_data["conversation_id"],
                     username=tweet_data["username"],
+                    in_reply_to_user_id=tweet_data.get("in_reply_to_user_id"),
+                    created_at=tweet_data.get("created_at", datetime.now(timezone.utc)),
                     fetched_for_user=fetched_for_user,
-                    created_at=datetime.now(timezone.utc),
                 )
                 session.add(tweet)
 
             session.commit()
+            return True
         except Exception as e:
             print(f"Error saving tweet to database: {e}")
             session.rollback()
+            return False
         finally:
             session.close()
 
-    def post_tweet(self, text):
+    def post_tweet(self, tweet_content, quote_tweet_id=None):
         """Post a tweet and save to local database"""
-        response = self.client.create_tweet(text=text)
+        if isinstance(tweet_content, TweetModel):
+            response = self.client.create_tweet(
+                text=tweet_content.text,
+                quote_tweet_id=tweet_content.quote_tweet_id,
+                user_auth=True,
+            )
+        else:
+            response = self.client.create_tweet(text=tweet_content)
 
         if response.data:
             tweet_data = {
                 "id": response.data["id"],
-                "text": text,
+                "text": tweet_content if isinstance(tweet_content, str) else tweet_content.text,
                 "author_id": self.client.get_me().data.id,
-                "conversation_id": response.data[
-                    "id"
-                ],  # For new tweets, conversation_id is the same as tweet_id
+                "conversation_id": response.data["id"],
                 "username": self.get_own_username(),
             }
             self.save_tweet_to_db(tweet_data)
             return response.data["id"]
         return None
-
-    def post_tweet(self, tweet: TweetModel):
-        self.client.create_tweet(
-            text=tweet.text,
-            quote_tweet_id=tweet.quote_tweet_id,
-            user_auth=True,
-        )
 
     def post_reply(self, text, reply_to_tweet_id, conversation_id):
         """Post a reply and save to local database"""
@@ -508,56 +487,6 @@ class TwitterClient:
 
         return pending_replies
 
-    def save_tweet_to_db(self, tweet_data, fetched_for_user=None):
-        """
-        Save tweet to database with user context
-
-        Args:
-            tweet_data (dict): Dictionary containing tweet data with keys:
-                - id: Tweet ID
-                - text: Tweet content
-                - author_id: ID of tweet author
-                - conversation_id: ID of conversation
-                - username: Author's username
-                - in_reply_to_user_id (optional): ID of tweet being replied to
-                - created_at (optional): Tweet creation timestamp
-            fetched_for_user (str, optional): Username context for which tweet was fetched
-        """
-        session = self.Session()
-        try:
-            # First try to find existing tweet
-            existing_tweet = (
-                session.query(Tweet).filter_by(tweet_id=str(tweet_data["id"])).first()
-            )
-
-            if existing_tweet:
-                # Update existing tweet if needed
-                existing_tweet.fetched_for_user = fetched_for_user
-                if "created_at" not in tweet_data:
-                    existing_tweet.created_at = datetime.now(timezone.utc)
-            else:
-                # Create new tweet if it doesn't exist
-                tweet = Tweet(
-                    tweet_id=str(tweet_data["id"]),
-                    text=tweet_data["text"],
-                    author_id=tweet_data["author_id"],
-                    conversation_id=tweet_data["conversation_id"],
-                    username=tweet_data["username"],
-                    in_reply_to_user_id=tweet_data.get("in_reply_to_user_id"),
-                    created_at=tweet_data.get("created_at", datetime.now(timezone.utc)),
-                    fetched_for_user=fetched_for_user,
-                )
-                session.add(tweet)
-
-            session.commit()
-            return True
-        except Exception as e:
-            print(f"Error saving tweet to database: {e}")
-            session.rollback()
-            return False
-        finally:
-            session.close()
-
     def follow_user(self, username) -> bool:
         """
         Follow a user given their username
@@ -796,20 +725,18 @@ class TwitterClient:
 
     def get_mentions(self, hours=24):
         """
-        Get mentions of the authenticated user from the last N hours
-        
+        Get mentions of the authenticated user from the last N hours and their full threads
+
         Args:
             hours (int): Number of hours to look back
-            
+
         Returns:
-            list: List of mention tweets with user info
+            list: List of mention tweets with their full threads
         """
         try:
             # Get authenticated user's ID
             me = self.client.get_me()
             user_id = me.data.id
-
-            breakpoint()
 
             # Calculate start_time
             start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
@@ -818,27 +745,66 @@ class TwitterClient:
             mentions = self.client.get_users_mentions(
                 id=user_id,
                 start_time=start_time,
-                tweet_fields=['created_at', 'conversation_id'],
+                tweet_fields=['created_at', 'conversation_id', 'text', 'author_id'],
                 user_fields=['username']
             )
 
             if not mentions.data:
                 return []
 
-            # Format mentions
-            formatted_mentions = []
+            # Format mentions and get their threads
+            mention_threads = []
             for mention in mentions.data:
-                author = self.client.get_user(id=mention.author_id).data
-                formatted_mentions.append({
-                    'id': mention.id,
-                    'text': mention.text,
-                    'created_at': mention.created_at,
-                    'username': author.username,
-                    'conversation_id': mention.conversation_id
+                # Get the full thread for this mention
+                thread_tweets = self.get_full_thread(mention.id)
+
+                mention_threads.append({
+                    'mention': {
+                        'id': mention.id,
+                        'text': mention.text,
+                        'created_at': mention.created_at,
+                        'author_id': mention.author_id,
+                        'conversation_id': mention.conversation_id
+                    },
+                    'thread': thread_tweets
                 })
 
-            return formatted_mentions
+            return mention_threads
 
         except Exception as e:
             print(f"Error getting mentions: {e}")
+            return []
+
+    def get_full_thread(self, tweet_id):
+        """
+        Get the full thread of tweets starting from a given tweet ID
+
+        Args:
+            tweet_id (str): The ID of the tweet to start from
+
+        Returns:
+            list: List of tweets in the thread in chronological order
+        """
+        try:
+            # Get the initial tweet
+            tweet = self.client.get_tweet(
+                id=tweet_id,
+                tweet_fields=['conversation_id', 'created_at', 'author_id', 'in_reply_to_user_id'],
+                user_fields=['username'],
+                expansions=['author_id', 'in_reply_to_user_id']
+            )
+
+            if not tweet.data:
+                return []
+
+            # Get all tweets in the conversation
+            conversation_tweets = self.get_tweets_for_conversation(tweet.data.conversation_id)
+
+            # Sort tweets chronologically
+            thread_tweets = sorted(conversation_tweets, key=lambda x: x['created_at'])
+
+            return thread_tweets
+
+        except Exception as e:
+            print(f"Error getting full thread: {e}")
             return []
