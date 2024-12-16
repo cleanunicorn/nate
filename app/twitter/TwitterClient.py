@@ -19,7 +19,7 @@ class TwitterClient:
 
     def get_timeline(self):
         tweets = self.client.get_home_timeline(
-            max_results=2,
+            max_results=20,
             tweet_fields=[
                 "author_id",
                 "in_reply_to_user_id",
