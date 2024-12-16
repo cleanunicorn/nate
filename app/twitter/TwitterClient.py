@@ -15,6 +15,7 @@ class TwitterClient:
         self.client.create_tweet(
             text=tweet.text,
             quote_tweet_id=tweet.quote_tweet_id,
+            user_auth=True,
         )
 
     def get_timeline(self):
