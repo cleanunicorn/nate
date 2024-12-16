@@ -49,6 +49,7 @@ def twitter_post(dry_run, thread, sample):
         api_secret=getenv("TWITTER_API_SECRET"),
         access_token=getenv("TWITTER_ACCESS_TOKEN"),
         access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+        bearer_token=getenv("TWITTER_BEARER_TOKEN"),
     )
 
     # Get timeline and simplify
@@ -143,6 +144,7 @@ def follow_users(users, file):
         api_secret=getenv("TWITTER_API_SECRET"),
         access_token=getenv("TWITTER_ACCESS_TOKEN"),
         access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+        bearer_token=getenv("TWITTER_BEARER_TOKEN"),
     )
 
     success_count = 0
