@@ -28,13 +28,6 @@ def twitter():
 
 
 @twitter.command(name="post")
-@click.option(
-    "--model",
-    "-m",
-    type=click.Choice(["openai", "ollama", "openrouter"]),
-    default="openai",
-    help="AI model to use for tweet generation",
-)
 @click.option("--dry-run", "-d", is_flag=True, help="Generate tweet without posting")
 @click.option(
     "--thread",
@@ -48,7 +41,7 @@ def twitter():
     is_flag=True,
     help="Use sample data instead of real Twitter timeline",
 )
-def twitter_post(model, dry_run, thread, sample):
+def twitter_post(dry_run, thread, sample):
     """Generate and post a tweet or thread based on timeline analysis"""
     # Initialize Twitter client
     client = TwitterClient(
@@ -68,15 +61,8 @@ def twitter_post(model, dry_run, thread, sample):
         {"username": t["username"], "text": t["text"]} for t in timeline
     ]
 
-    # Select generator based on model option
-    if model == "openai":
-        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
-    elif model == "ollama":
-        generator = TweetGeneratorOllama()
-    else:
-        click.echo("OpenRouter is currently disabled")
-        return
-        # generator = TweetGeneratorOpenRouter(api_key=getenv("OPENROUTER_API_KEY"))
+    # Initialize tweet generator
+    generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
 
     # Generate new tweet or thread
     if thread:
