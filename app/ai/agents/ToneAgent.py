@@ -5,6 +5,7 @@ from app.ai.models import TweetThreadModel, TweetModel
 from app.utils.utils import clean_tweet
 from config.prompts import TONE_ADJUSTMENT_SYSTEM_PROMPT
 
+
 class ToneAgent:
     """
     A class that uses OpenAI to optimize the tone of voice for content.

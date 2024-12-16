@@ -11,4 +11,3 @@ class TweetModel(BaseModel):
 class TweetThreadModel(BaseModel):
     tweets: list[TweetModel]
     topic: str
-

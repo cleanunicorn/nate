@@ -21,10 +21,11 @@ setup(
     author="Daniel Luca",
     author_email="lucadanielcostin@gmail.com",
     description="An AI-powered Twitter bot that generates and posts tweets",
-    long_description=open("README.md", encoding="utf-8").read() if os.path.exists("README.md") else "",
+    long_description=open("README.md", encoding="utf-8").read()
+    if os.path.exists("README.md")
+    else "",
     long_description_content_type="text/markdown",
     url="https://github.com/cleanunicorn/nate",
-    classifiers=[
-    ],
+    classifiers=[],
     python_requires=">=3.10",
-) 
+)

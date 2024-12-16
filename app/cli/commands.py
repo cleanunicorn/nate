@@ -165,6 +165,7 @@ def follow_users(users, file):
 
     click.echo(f"\nFollowed {success_count} out of {len(usernames)} users")
 
+
 @twitter.command(name="reply")
 @click.option(
     "--local",
@@ -172,20 +173,8 @@ def follow_users(users, file):
     is_flag=True,
     help="Use locally stored tweets from database",
 )
-@click.option(
-    "--dry-run", 
-    "-d", 
-    is_flag=True, 
-    help="Generate tweet without posting"
-)
-@click.option(
-    "--model",
-    "-m",
-    type=click.Choice(["openai", "ollama", "openrouter"]),
-    default="openai",
-    help="AI model to use for tweet generation",
-)
-def twitter_reply(local, dry_run, model):
+@click.option("--dry-run", "-d", is_flag=True, help="Generate tweet without posting")
+def twitter_reply(local, dry_run):
     """Generate and post replies to conversations"""
     # Initialize Twitter client
     client = TwitterClient(
@@ -196,15 +185,13 @@ def twitter_reply(local, dry_run, model):
         bearer_token=getenv("TWITTER_BEARER_TOKEN"),
     )
 
-    # Get bot's username
-    bot_username = client.get_own_username()
-
     # Get conversations either from local DB or Twitter API
     conversations = client.get_conversations(use_local=local)
 
     # Filter for conversations needing replies
     pending_replies = {
-        conv_id: conv for conv_id, conv in conversations.items() 
+        conv_id: conv
+        for conv_id, conv in conversations.items()
         if client.needs_reply(conv)
     }
 
@@ -212,8 +199,8 @@ def twitter_reply(local, dry_run, model):
         click.echo("No conversations need replies")
         return
 
-    generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"), bot_username=bot_username)
-    
+    generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
+
     # Display and process conversations needing replies
     click.echo(f"\nFound {len(pending_replies)} conversations needing replies:\n")
 
@@ -222,41 +209,37 @@ def twitter_reply(local, dry_run, model):
         click.echo("Participants: " + ", ".join(conversation["participants"]))
         click.echo(f"Last activity: {conversation['last_tweet_time']}")
         click.echo("\nTweets:")
-        
+
         # Sort tweets by creation time
-        sorted_tweets = sorted(
-            conversation["tweets"], 
-            key=lambda x: x["created_at"]
-        )
-        
+        sorted_tweets = sorted(conversation["tweets"], key=lambda x: x["created_at"])
+
         for tweet in sorted_tweets:
             click.echo(f"\n@{tweet['username']} ({tweet['created_at']}):")
             click.echo(f"{tweet['text']}")
 
+        conversation = sorted_tweets
+
         # Generate reply
-        timeline = [{"username": t["username"], "text": t["text"]} for t in sorted_tweets]
-        conversation_text = "\n".join([
-            f"Tweet from @{t['username']}:\n{t['text']}" 
-            for t in sorted_tweets
-        ])
-        
-        reply = generator.create_reply(tweets=timeline, conversation=conversation_text)
-        
+        reply = generator.create_reply(timeline=conversation)
+
+        # Adjust tone of tweet
+        tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+        reply = tone_agent.adjust_tone_single_tweet(reply)        
+
         click.echo("\nGenerated Reply:")
         click.echo("---")
         click.echo(reply.text)
         click.echo("---")
-        
+
         if not dry_run:
             # Get the last tweet in conversation to reply to
             last_tweet_id = sorted_tweets[-1]["id"]
             client.post_reply(
                 text=reply.text,
                 reply_to_tweet_id=last_tweet_id,
-                conversation_id=conv_id
+                conversation_id=conv_id,
             )
             click.echo("Reply posted successfully!")
         else:
             click.echo("Dry run - reply not posted")
-        
-        click.echo("\n" + "-"*50 + "\n")
+

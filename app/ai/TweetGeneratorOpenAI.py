@@ -34,9 +34,6 @@ class TweetGeneratorOpenAI:
             },
         ]
 
-        print(messages)
-        breakpoint()
-
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=messages,

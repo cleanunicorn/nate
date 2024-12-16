@@ -2,9 +2,10 @@ from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime, timezone
 from app.db.Init_db import Base
 
+
 class Tweet(Base):
-    __tablename__ = 'tweets'
-    
+    __tablename__ = "tweets"
+
     id = Column(Integer, primary_key=True)
     tweet_id = Column(String, unique=True)
     text = Column(String)
