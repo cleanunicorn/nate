@@ -5,11 +5,9 @@ from pathlib import Path
 
 import click
 from dotenv import load_dotenv
+
 from app.twitter.TwitterClient import TwitterClient
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
-from app.ai.TweetGeneratorOllama import TweetGeneratorOllama
-
-# from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
 from app.ai.agents.ToneAgent import ToneAgent
 from app.utils.utils import clean_tweet
 
