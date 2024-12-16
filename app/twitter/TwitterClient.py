@@ -2,7 +2,7 @@ import tweepy
 from app.db.Init_db import init_db
 from app.db.models.Tweet_model import Tweet
 from app.db.models.Storage_model import Storage
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.utils.utils import is_likely_spam
 
 
@@ -488,8 +488,6 @@ class TwitterClient:
     def needs_reply(self, conversation):
         """Check if a conversation needs our reply"""
 
-        return True
-
         # Skip if we were the last to tweet
         if (
             conversation["our_last_tweet_time"] is not None
@@ -795,3 +793,52 @@ class TwitterClient:
         ]
 
         return sample_timeline
+
+    def get_mentions(self, hours=24):
+        """
+        Get mentions of the authenticated user from the last N hours
+        
+        Args:
+            hours (int): Number of hours to look back
+            
+        Returns:
+            list: List of mention tweets with user info
+        """
+        try:
+            # Get authenticated user's ID
+            me = self.client.get_me()
+            user_id = me.data.id
+
+            breakpoint()
+
+            # Calculate start_time
+            start_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+
+            # Get mentions
+            mentions = self.client.get_users_mentions(
+                id=user_id,
+                start_time=start_time,
+                tweet_fields=['created_at', 'conversation_id'],
+                user_fields=['username']
+            )
+
+            if not mentions.data:
+                return []
+
+            # Format mentions
+            formatted_mentions = []
+            for mention in mentions.data:
+                author = self.client.get_user(id=mention.author_id).data
+                formatted_mentions.append({
+                    'id': mention.id,
+                    'text': mention.text,
+                    'created_at': mention.created_at,
+                    'username': author.username,
+                    'conversation_id': mention.conversation_id
+                })
+
+            return formatted_mentions
+
+        except Exception as e:
+            print(f"Error getting mentions: {e}")
+            return []

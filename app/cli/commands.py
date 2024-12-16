@@ -243,3 +243,62 @@ def twitter_reply(local, dry_run):
         else:
             click.echo("Dry run - reply not posted")
 
+
+@twitter.command(name="handle-mentions")
+@click.option("--dry-run", "-d", is_flag=True, help="Generate replies without posting")
+@click.option(
+    "--hours",
+    "-h",
+    default=24,
+    help="Look for mentions from the last N hours (default: 24)",
+)
+def handle_mentions(dry_run, hours):
+    """Generate and post replies to mentions of your account"""
+    # Initialize Twitter client
+    client = TwitterClient(
+        api_key=getenv("TWITTER_API_KEY"),
+        api_secret=getenv("TWITTER_API_SECRET"),
+        access_token=getenv("TWITTER_ACCESS_TOKEN"),
+        access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+        bearer_token=getenv("TWITTER_BEARER_TOKEN"),
+    )
+
+    # Get mentions from Twitter API
+    mentions = client.get_mentions(hours=hours)
+
+    if not mentions:
+        click.echo("No new mentions found")
+        return
+
+    generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
+
+    click.echo(f"\nFound {len(mentions)} mentions to handle:\n")
+
+    for mention in mentions:
+        click.echo(f"Tweet from @{mention['username']} ({mention['created_at']}):")
+        click.echo(f"Text: {mention['text']}")
+
+        # Generate reply
+        reply = generator.create_reply(timeline=[mention])
+
+        # Adjust tone of reply
+        tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+        reply = tone_agent.adjust_tone_single_tweet(reply)
+
+        click.echo("\nGenerated Reply:")
+        click.echo("---")
+        click.echo(reply.text)
+        click.echo("---")
+
+        if not dry_run:
+            client.post_reply(
+                text=reply.text,
+                reply_to_tweet_id=mention['id'],
+                conversation_id=mention.get('conversation_id')
+            )
+            click.echo("Reply posted successfully!")
+        else:
+            click.echo("Dry run - reply not posted")
+        
+        click.echo("\n" + "-"*50 + "\n")
+
