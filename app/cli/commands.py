@@ -8,7 +8,9 @@ from dotenv import load_dotenv
 from app.twitter.TwitterClient import TwitterClient
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.ai.TweetGeneratorOllama import TweetGeneratorOllama
-from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
+
+# from app.ai.TweetGeneratorOpenRouter import TweetGeneratorOpenRouter
+from app.ai.agents.ToneAgent import ToneAgent
 from app.utils.utils import clean_tweet
 
 # Load environment variables at module level
@@ -82,6 +84,10 @@ def twitter_post(model, dry_run, thread, sample):
     if thread:
         new_tweet_thread = generator.create_thread(tweets=simplified_timeline)
 
+        # Adjust tone of tweet thread
+        tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+        new_tweet_thread = tone_agent.adjust_tone_thread(new_tweet_thread.tweets)
+
         new_topic = new_tweet_thread.topic
         new_tweets = new_tweet_thread.tweets
 
@@ -106,6 +112,10 @@ def twitter_post(model, dry_run, thread, sample):
             click.echo("Dry run - thread not posted")
     else:
         new_post = generator.create_tweet(tweets=simplified_timeline)
+
+        # Adjust tone of tweet
+        tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+        new_post = tone_agent.adjust_tone_single_tweet(new_post.text)
 
         new_topic = new_post.topic
         new_tweet = clean_tweet(new_post.text)
