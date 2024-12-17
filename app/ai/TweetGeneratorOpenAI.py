@@ -19,6 +19,11 @@ class TweetGeneratorOpenAI:
 
     def _deduplicate_mentions(self, content: TweetModel | TweetThreadModel) -> TweetModel | TweetThreadModel:
         mentioned_tweets = {}
+        # Return single tweets without changes
+        if isinstance(content, TweetModel):
+            return content
+
+        # Initialize empty dict for tracking mentioned tweets
         # Allow a tweet to be mentioned only once
         for tweet in content.tweets:
             # If the tweet is mentioned, remove the quote_tweet_id
