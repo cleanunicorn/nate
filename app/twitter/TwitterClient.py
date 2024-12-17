@@ -4,6 +4,7 @@ from app.db.models.Tweet_model import Tweet
 from app.db.models.Storage_model import Storage
 from datetime import datetime, timezone, timedelta
 from app.utils.utils import is_likely_spam
+from app.ai.models import TweetModel, TweetThreadModel
 
 
 class TwitterClient:
@@ -49,7 +50,9 @@ class TwitterClient:
             if existing_tweet:
                 # Update existing tweet if needed
                 existing_tweet.fetched_for_user = fetched_for_user
-                existing_tweet.created_at = tweet_data.get("created_at", datetime.now(timezone.utc))
+                existing_tweet.created_at = tweet_data.get(
+                    "created_at", datetime.now(timezone.utc)
+                )
             else:
                 # Create new tweet if it doesn't exist
                 tweet = Tweet(
@@ -87,7 +90,9 @@ class TwitterClient:
         if response.data:
             tweet_data = {
                 "id": response.data["id"],
-                "text": tweet_content if isinstance(tweet_content, str) else tweet_content.text,
+                "text": tweet_content
+                if isinstance(tweet_content, str)
+                else tweet_content.text,
                 "author_id": self.client.get_me().data.id,
                 "conversation_id": response.data["id"],
                 "username": self.get_own_username(),
@@ -157,6 +162,7 @@ class TwitterClient:
             ],
             media_fields=["url"],
             user_fields=["username"],
+            user_auth=True,
         )
 
         homepage_tweets = []
@@ -184,16 +190,16 @@ class TwitterClient:
         """Post a thread of tweets"""
         # Post first tweet
         response = self.client.create_tweet(
-            text=tweets[0].tweet.text,
-            quote_tweet_id=tweets[0].tweet.quote_tweet_id,
+            text=tweets.tweets[0].text,
+            quote_tweet_id=tweets.tweets[0].quote_tweet_id,
         )
         previous_id = response.data["id"]
 
         # Post rest of thread in reply to previous tweet
-        for tweet in tweets[1:]:
+        for tweet in tweets.tweets[1:]:
             response = self.client.create_tweet(
-                text=tweet.tweet.text,
-                quote_tweet_id=tweet.tweet.quote_tweet_id,
+                text=tweet.text,
+                quote_tweet_id=tweet.quote_tweet_id,
                 in_reply_to_tweet_id=previous_id,
             )
             previous_id = response.data["id"]
@@ -690,31 +696,6 @@ class TwitterClient:
                 "id": "1864611111111111142",
             },
             {
-                "username": "LeonidasNFT",
-                "text": "RT @cryptolution101: $DOG is backed by Bitcoin  https://t.co/k8Msf7aK8p",
-                "id": "1864611111111111143",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @polis_btc: Gm $DOG Army https://t.co/siTSEP8NLv",
-                "id": "1864611111111111144",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @JOHNRICK17XX: youre not ready. $DOG (Bitcoin) https://t.co/aVHR0eQjq8",
-                "id": "1864611111111111145",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @CoinsWeb3: Not sleeping \n\nI have a good feeling \n\n$DOG",
-                "id": "1864611111111111146",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @CoinsWeb3: When $DOG (Bitcoin) hits 1 billion market cap, everyone will claim they saw it coming. \n\nBut the real question is, did they",
-                "id": "1864611111111111147",
-            },
-            {
                 "username": "GigelNFT",
                 "text": "Hey @PermanentLoss, what's up?",
                 "id": "1864611111111111148",
@@ -733,6 +714,9 @@ class TwitterClient:
         Returns:
             list: List of mention tweets with their full threads
         """
+
+        breakpoint()
+
         try:
             # Get authenticated user's ID
             me = self.client.get_me()
@@ -745,8 +729,22 @@ class TwitterClient:
             mentions = self.client.get_users_mentions(
                 id=user_id,
                 start_time=start_time,
-                tweet_fields=['created_at', 'conversation_id', 'text', 'author_id'],
-                user_fields=['username']
+                tweet_fields=[
+                    "author_id",
+                    "in_reply_to_user_id",
+                    "conversation_id",
+                    "text",
+                    "id",
+                ],
+                expansions=[
+                    "author_id",
+                    "entities.mentions.username",
+                    "in_reply_to_user_id",
+                    "referenced_tweets.id",
+                    "referenced_tweets.id.author_id",
+                ],
+                user_fields=["username"],
+                user_auth=True,
             )
 
             if not mentions.data:
@@ -758,16 +756,18 @@ class TwitterClient:
                 # Get the full thread for this mention
                 thread_tweets = self.get_full_thread(mention.id)
 
-                mention_threads.append({
-                    'mention': {
-                        'id': mention.id,
-                        'text': mention.text,
-                        'created_at': mention.created_at,
-                        'author_id': mention.author_id,
-                        'conversation_id': mention.conversation_id
-                    },
-                    'thread': thread_tweets
-                })
+                mention_threads.append(
+                    {
+                        "mention": {
+                            "id": mention.id,
+                            "text": mention.text,
+                            "created_at": mention.created_at,
+                            "author_id": mention.author_id,
+                            "conversation_id": mention.conversation_id,
+                        },
+                        "thread": thread_tweets,
+                    }
+                )
 
             return mention_threads
 
@@ -789,19 +789,27 @@ class TwitterClient:
             # Get the initial tweet
             tweet = self.client.get_tweet(
                 id=tweet_id,
-                tweet_fields=['conversation_id', 'created_at', 'author_id', 'in_reply_to_user_id'],
-                user_fields=['username'],
-                expansions=['author_id', 'in_reply_to_user_id']
+                tweet_fields=[
+                    "conversation_id",
+                    "created_at",
+                    "author_id",
+                    "in_reply_to_user_id",
+                ],
+                user_fields=["username"],
+                expansions=["author_id", "in_reply_to_user_id"],
+                user_auth=True,
             )
 
             if not tweet.data:
                 return []
 
             # Get all tweets in the conversation
-            conversation_tweets = self.get_tweets_for_conversation(tweet.data.conversation_id)
+            conversation_tweets = self.get_tweets_for_conversation(
+                tweet.data.conversation_id
+            )
 
             # Sort tweets chronologically
-            thread_tweets = sorted(conversation_tweets, key=lambda x: x['created_at'])
+            thread_tweets = sorted(conversation_tweets, key=lambda x: x["created_at"])
 
             return thread_tweets
 

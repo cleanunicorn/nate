@@ -224,7 +224,7 @@ def twitter_reply(local, dry_run):
 
         # Adjust tone of tweet
         tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
-        reply = tone_agent.adjust_tone_single_tweet(reply)        
+        reply = tone_agent.adjust_tone_single_tweet(reply)
 
         click.echo("\nGenerated Reply:")
         click.echo("---")
@@ -263,6 +263,8 @@ def handle_mentions(dry_run, hours):
         bearer_token=getenv("TWITTER_BEARER_TOKEN"),
     )
 
+    breakpoint()
+
     # Get mentions from Twitter API
     mentions = client.get_mentions(hours=hours)
 
@@ -293,12 +295,11 @@ def handle_mentions(dry_run, hours):
         if not dry_run:
             client.post_reply(
                 text=reply.text,
-                reply_to_tweet_id=mention['id'],
-                conversation_id=mention.get('conversation_id')
+                reply_to_tweet_id=mention["id"],
+                conversation_id=mention.get("conversation_id"),
             )
             click.echo("Reply posted successfully!")
         else:
             click.echo("Dry run - reply not posted")
-        
-        click.echo("\n" + "-"*50 + "\n")
 
+        click.echo("\n" + "-" * 50 + "\n")
