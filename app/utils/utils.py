@@ -8,15 +8,15 @@ def clean_tweet(text):
     Returns:
         str: The cleaned tweet text
     """
-    # Remove surrounding triple backticks if present
-    text = text.strip()
-    text = text.strip("```")
-    text = text.strip()
-    text = text.strip('"')
-    text = text.strip()
-
     # Remove hashtags
-    text = " ".join(word for word in text.split() if not word.startswith("#"))
+    # Remove hashtags while preserving newlines
+    lines = text.split('\n')
+    cleaned_lines = []
+    for line in lines:
+        cleaned_line = ' '.join(word for word in line.split() if not word.startswith('#'))
+        cleaned_lines.append(cleaned_line)
+    text = '\n'.join(cleaned_lines)
+
 
     return text
 
