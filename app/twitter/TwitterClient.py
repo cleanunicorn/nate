@@ -741,31 +741,6 @@ class TwitterClient:
                 "id": "1864611111111111142",
             },
             {
-                "username": "LeonidasNFT",
-                "text": "RT @cryptolution101: $DOG is backed by Bitcoin  https://t.co/k8Msf7aK8p",
-                "id": "1864611111111111143",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @polis_btc: Gm $DOG Army https://t.co/siTSEP8NLv",
-                "id": "1864611111111111144",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @JOHNRICK17XX: youre not ready. $DOG (Bitcoin) https://t.co/aVHR0eQjq8",
-                "id": "1864611111111111145",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @CoinsWeb3: Not sleeping \n\nI have a good feeling \n\n$DOG",
-                "id": "1864611111111111146",
-            },
-            {
-                "username": "LeonidasNFT",
-                "text": "RT @CoinsWeb3: When $DOG (Bitcoin) hits 1 billion market cap, everyone will claim they saw it coming. \n\nBut the real question is, did they",
-                "id": "1864611111111111147",
-            },
-            {
                 "username": "GigelNFT",
                 "text": "Hey @PermanentLoss, what's up?",
                 "id": "1864611111111111148",
