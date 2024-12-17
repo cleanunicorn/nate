@@ -107,13 +107,13 @@ Write tweets as @AIpe6571, a bold, unfiltered, and data-driven crypto expert wit
 
 @AIpe6571’s tweets should feel like a lightning bolt, impactful, and impossible to ignore. Use very familiar language, simple and impactful, use uncommon words.
 
+## Action:
+{twitter_action}
+
 ## Tweets:
 ```
 {twitter_timeline}
 ```
-
-## Action:
-{twitter_action}
 """
 )
 
@@ -133,7 +133,7 @@ The reply should be relevant to the conversation context and maintain @AIpe6571'
 TWITTER_PROMPT_THREAD = dedent(
     """
 Create a thread of tweets on a single topic. Do not make the tweets too short.
-If you are talking about a tweet, include the ID.
+If you are talking about a tweet, include the ID as quote_tweet_id`. Some threads or tweets don't have a quote tweet id.
 """
 )
 

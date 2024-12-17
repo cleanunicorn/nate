@@ -17,6 +17,17 @@ class TweetGeneratorOpenAI:
         self.prompt = USER_PROMPT_TWITTER
         self.client = OpenAI(api_key=api_key)
 
+    def _deduplicate_mentions(self, content: TweetModel | TweetThreadModel) -> TweetModel | TweetThreadModel:
+        mentioned_tweets = {}
+        # Allow a tweet to be mentioned only once
+        for tweet in content.tweets:
+            # If the tweet is mentioned, remove the quote_tweet_id
+            if mentioned_tweets.get(tweet.quote_tweet_id, False):
+                tweet.quote_tweet_id = None
+            else:
+                mentioned_tweets[tweet.quote_tweet_id] = True
+        return content
+
     def create_tweet(
         self,
         timeline: list[dict],
@@ -38,9 +49,17 @@ class TweetGeneratorOpenAI:
             model="gpt-4o-mini",
             messages=messages,
             response_format=response_format,
+            temperature=1.2,
+            top_p=0.85,
+            # frequency_penalty=0.2,
+            presence_penalty=0.15,
         )
 
         content = response.choices[0].message.parsed
+
+        # Clean up mentions
+        content = self._deduplicate_mentions(content)
+
         return content
 
     def create_thread(self, timeline: list[dict]) -> TweetThreadModel:

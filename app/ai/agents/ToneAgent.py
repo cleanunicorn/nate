@@ -20,7 +20,7 @@ class ToneAgent:
         """
         self.client = OpenAI(api_key=api_key)
 
-    def adjust_tone_thread(self, content: TweetThreadModel) -> TweetThreadModel:
+    def adjust_tone_thread(self, thread: TweetThreadModel) -> TweetThreadModel:
         """
         Adjust the tone of the given content to match the target tone.
 
@@ -30,8 +30,8 @@ class ToneAgent:
         Returns:
             str: The content rewritten in the target tone
         """
-        prompt = f"Topic: {content.topic}\n---\n"
-        prompt += "\n---\n".join(tweet.text for tweet in content.tweets)
+        prompt = f"Topic: {thread.topic}\n---\n"
+        prompt += "\n---\n".join(tweet.text for tweet in thread.tweets)
 
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
@@ -43,27 +43,35 @@ class ToneAgent:
                 {"role": "user", "content": prompt},
             ],
             response_format=TweetThreadModel,
+            temperature=1.2,
+            top_p=0.85,
+            # frequency_penalty=0.2,
+            presence_penalty=0.15,
         )
 
         parsed_response = response.choices[0].message.parsed
 
-        # Clean tweets
-        for tweet in parsed_response.tweets:
+        for i, tweet in enumerate(parsed_response.tweets):
+            # Clean tweets
             tweet.text = clean_tweet(tweet.text)
+
+            # Retain quote tweet id
+            if len(parsed_response.tweets) == len(thread.tweets):
+                parsed_response.tweets[i].quote_tweet_id = thread.tweets[i].quote_tweet_id
 
         return parsed_response
 
-    def adjust_tone_single_tweet(self, content: TweetModel) -> TweetModel:
+    def adjust_tone_single_tweet(self, tweet: TweetModel) -> TweetModel:
         """
         Adjust the tone of a single tweet.
 
         Args:
-            content (str): The original tweet content to adjust
+            tweet (TweetModel): The tweet to adjust
 
         Returns:
             TweetModel: The tweet rewritten with adjusted tone
         """
-        prompt = content.text
+        prompt = tweet.text
 
         response = self.client.beta.chat.completions.parse(
             model="gpt-4o-mini",
@@ -72,11 +80,19 @@ class ToneAgent:
                 {"role": "user", "content": prompt},
             ],
             response_format=TweetModel,
+            temperature=1.2,
+            max_tokens=760,
+            top_p=0.85,
+            frequency_penalty=0.2,
+            presence_penalty=0.15,            
         )
 
         parsed_response = response.choices[0].message.parsed
 
         # Clean tweet
         parsed_response.text = clean_tweet(parsed_response.text)
+
+        # Retain quote tweet id
+        parsed_response.quote_tweet_id = tweet.quote_tweet_id
 
         return parsed_response
