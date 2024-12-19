@@ -64,7 +64,7 @@ def is_likely_spam(tweet_data):
     # Check for multiple @ mentions (more than 3)
     tag_count = text.count("@")
     if tag_count > 2:
-        spam_indicators += min(tag_count * 0.5, 2)
+        spam_indicators += min(tag_count * 0.25, 3)
 
     # Check for common spam phrases
     spam_phrases = [
