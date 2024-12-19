@@ -29,14 +29,10 @@ class TwitterClient:
         self.engine, Session = init_db(db_path)
         self.Session = Session
 
-        # Initialize storage
-        self.storage = Storage()
-
-        # Cache username and user_id if not already stored
-        if not self.storage.get("username"):
-            user = self.client.get_me()
-            self.storage.set("username", user.data.username)
-            self.storage.set("user_id", user.data.id)
+        # Get user info directly
+        user = self.client.get_me()
+        self.username = user.data.username
+        self.user_id = user.data.id
 
     def save_tweet_to_db(self, tweet_data, fetched_for_user=None):
         """Save tweet to database with user context"""
@@ -228,6 +224,7 @@ class TwitterClient:
                 ],
                 expansions=["author_id", "referenced_tweets.id", "in_reply_to_user_id"],
                 user_fields=["username"],
+                user_auth=True,
             )
 
             if all_tweets.data:
@@ -303,11 +300,9 @@ class TwitterClient:
         """Process mentions and add them to conversations"""
         print("\n=== Fetching Mentions ===")
 
-        last_mention_time = self.storage.get_timestamp("last_mention_time")
         mentions = self.client.get_users_mentions(
-            id=self.storage.get("user_id"),
-            max_results=50,
-            start_time=last_mention_time,
+            id=self.get_own_user_id(),
+            max_results=100,
             tweet_fields=[
                 "author_id",
                 "in_reply_to_user_id",
@@ -323,18 +318,16 @@ class TwitterClient:
                 "referenced_tweets.id.author_id",
             ],
             user_fields=["username", "name"],
+            user_auth=True,
         )
 
         if not mentions.data:
             return
 
         print(f"Found {len(mentions.data)} mentions")
-        self.storage.set("last_mention_time", datetime.now(timezone.utc).isoformat())
 
         # Filter spam mentions
-        non_spam_mentions = (
-            self._filter_spam_mentions(mentions) if filter_spam else mentions.data
-        )
+        non_spam_mentions = self._filter_spam_mentions(mentions) if filter_spam else mentions.data
 
         # Process each mention
         for tweet in non_spam_mentions:
@@ -458,15 +451,19 @@ class TwitterClient:
         return conversations
 
     def get_own_username(self):
-        """Get the authenticated user's username from storage"""
-        return self.storage.get("username")
+        """Get the authenticated user's username"""
+        return self.username
 
     def get_own_user_id(self):
-        """Get the authenticated user's user_id from storage"""
-        return self.storage.get("user_id")
+        """Get the authenticated user's user_id"""
+        return self.user_id
 
     def needs_reply(self, conversation):
         """Check if a conversation needs our reply"""
+
+        # Skip if conversation is too long (more than 5 posts)
+        if len(conversation["tweets"]) > 5:
+            return False
 
         # Skip if we were the last to tweet
         if (
