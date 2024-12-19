@@ -56,7 +56,7 @@ class TwitterClient:
                     conversation_id=tweet_data["conversation_id"],
                     username=tweet_data["username"],
                     fetched_for_user=fetched_for_user,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(timezone.utc), 
                 )
                 session.add(tweet)
 
@@ -300,7 +300,7 @@ class TwitterClient:
 
         mentions = self.client.get_users_mentions(
             id=self.user_id,
-            max_results=100,
+            max_results=20,
             tweet_fields=[
                 "author_id",
                 "in_reply_to_user_id",
