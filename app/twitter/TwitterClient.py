@@ -138,7 +138,7 @@ class TwitterClient:
             print(f"Error posting reply: {e}")
             return None
 
-    def get_timeline(self):
+    def get_timeline(self, filter_self=True):
         tweets = self.client.get_home_timeline(
             max_results=20,
             tweet_fields=[
@@ -163,6 +163,9 @@ class TwitterClient:
         homepage_tweets = []
 
         for tweet in tweets.data:
+            if filter_self and tweet.author_id == self.get_own_user_id():
+                continue
+
             tweet_data = {}
             try:
                 tweet_data["id"] = getattr(tweet, "id")
@@ -634,11 +637,6 @@ class TwitterClient:
                 "username": "LeonidasNFT",
                 "text": "RT @runetoshi21: $DOG good 10 minute volume\n\nSTARS ARE ALIGNING\n\nSEND IT https://t.co/Fp5KAlgEnP",
                 "id": "1864611111111111124",
-            },
-            {
-                "username": "RoundtableSpace",
-                "text": "MARKET CARNAGE LEAVES MEMECOINS WRECKED\n\nBitcoin dipped below $95K again, triggering chaos across the market. Memecoins took a brutal hit - DOGE crashed 12% to under $0.40, SHIB dropped 15%, and FLOKI and BONK nosedived over 16%.\n\nEthereum slid 6%, while over $700M in https://t.co/A6s0RmO5Dl https://t.co/BVzFkUWPEy",
-                "id": "1864611111111111125",
             },
             {
                 "username": "gregthegreek",
