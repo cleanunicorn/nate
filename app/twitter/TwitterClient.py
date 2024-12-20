@@ -29,14 +29,10 @@ class TwitterClient:
         self.engine, Session = init_db(db_path)
         self.Session = Session
 
-        # Initialize storage
-        self.storage = Storage()
-
-        # Cache username and user_id if not already stored
-        if not self.storage.get("username"):
-            user = self.client.get_me()
-            self.storage.set("username", user.data.username)
-            self.storage.set("user_id", user.data.id)
+        # Get user info directly
+        user = self.client.get_me()
+        self.username = user.data.username
+        self.user_id = user.data.id
 
     def save_tweet_to_db(self, tweet_data, fetched_for_user=None):
         """Save tweet to database with user context"""
@@ -60,7 +56,7 @@ class TwitterClient:
                     conversation_id=tweet_data["conversation_id"],
                     username=tweet_data["username"],
                     fetched_for_user=fetched_for_user,
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(timezone.utc), 
                 )
                 session.add(tweet)
 
@@ -79,11 +75,9 @@ class TwitterClient:
             tweet_data = {
                 "id": response.data["id"],
                 "text": text,
-                "author_id": self.client.get_me().data.id,
-                "conversation_id": response.data[
-                    "id"
-                ],  # For new tweets, conversation_id is the same as tweet_id
-                "username": self.get_own_username(),
+                "author_id": self.user_id,
+                "conversation_id": response.data["id"],
+                "username": self.username,
             }
             self.save_tweet_to_db(tweet_data)
             return response.data["id"]
@@ -126,9 +120,9 @@ class TwitterClient:
                 tweet_data = {
                     "id": response.data["id"],
                     "text": text,
-                    "author_id": self.client.get_me().data.id,
+                    "author_id": self.user_id,
                     "conversation_id": conversation_id,
-                    "username": self.get_own_username(),
+                    "username": self.username,
                     "in_reply_to_user_id": reply_to_tweet_id,
                 }
                 self.save_tweet_to_db(tweet_data)
@@ -231,6 +225,7 @@ class TwitterClient:
                 ],
                 expansions=["author_id", "referenced_tweets.id", "in_reply_to_user_id"],
                 user_fields=["username"],
+                user_auth=True,
             )
 
             if all_tweets.data:
@@ -252,7 +247,7 @@ class TwitterClient:
                         "created_at": tweet.created_at,
                     }
                     conversation_tweets.append(tweet_data)
-                    self.save_tweet_to_db(tweet_data, self.get_own_username())
+                    self.save_tweet_to_db(tweet_data, self.username)
 
         except Exception as e:
             print(f"\nERROR fetching conversation {conversation_id}: {e}")
@@ -292,7 +287,7 @@ class TwitterClient:
             conversations[conversation_id]["last_tweet_time"] = tweet_data["created_at"]
 
         # Update our last tweet time if it's our tweet
-        if tweet_data["username"] == self.get_own_username():
+        if tweet_data["username"] == self.username:
             if (
                 conversations[conversation_id]["our_last_tweet_time"] is None
                 or tweet_data["created_at"]
@@ -306,11 +301,9 @@ class TwitterClient:
         """Process mentions and add them to conversations"""
         print("\n=== Fetching Mentions ===")
 
-        last_mention_time = self.storage.get_timestamp("last_mention_time")
         mentions = self.client.get_users_mentions(
-            id=self.storage.get("user_id"),
-            max_results=50,
-            start_time=last_mention_time,
+            id=self.user_id,
+            max_results=20,
             tweet_fields=[
                 "author_id",
                 "in_reply_to_user_id",
@@ -326,18 +319,16 @@ class TwitterClient:
                 "referenced_tweets.id.author_id",
             ],
             user_fields=["username", "name"],
+            user_auth=True,
         )
 
         if not mentions.data:
             return
 
         print(f"Found {len(mentions.data)} mentions")
-        self.storage.set("last_mention_time", datetime.now(timezone.utc).isoformat())
 
         # Filter spam mentions
-        non_spam_mentions = (
-            self._filter_spam_mentions(mentions) if filter_spam else mentions.data
-        )
+        non_spam_mentions = self._filter_spam_mentions(mentions) if filter_spam else mentions.data
 
         # Process each mention
         for tweet in non_spam_mentions:
@@ -460,16 +451,12 @@ class TwitterClient:
 
         return conversations
 
-    def get_own_username(self):
-        """Get the authenticated user's username from storage"""
-        return self.storage.get("username")
-
-    def get_own_user_id(self):
-        """Get the authenticated user's user_id from storage"""
-        return self.storage.get("user_id")
-
     def needs_reply(self, conversation):
         """Check if a conversation needs our reply"""
+
+        # Skip if conversation is too long (more than 5 posts)
+        if len(conversation["tweets"]) > 5:
+            return False
 
         # Skip if we were the last to tweet
         if (

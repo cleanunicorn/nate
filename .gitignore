@@ -163,3 +163,4 @@ cython_debug/
 
 # Database
 *.db
+.DS_Store
