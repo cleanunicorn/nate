@@ -2,7 +2,7 @@
 
 from os import getenv
 from pathlib import Path
-
+import time
 import click
 from dotenv import load_dotenv
 
@@ -157,6 +157,8 @@ def follow_users(users, file):
             # Assuming there's an existing follow_user function in the API client
             if client.follow_user(username):
                 click.echo(f"Successfully followed @{username}")
+                # Sleep for 1 second to avoid rate limiting
+                time.sleep(1)
                 success_count += 1
             else:
                 click.echo(f"Failed to follow @{username}")
