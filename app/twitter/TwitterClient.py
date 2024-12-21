@@ -157,7 +157,7 @@ class TwitterClient:
         homepage_tweets = []
 
         for tweet in tweets.data:
-            if filter_self and tweet.author_id == self.get_own_user_id():
+            if filter_self and tweet.author_id == self.user_id:
                 continue
 
             tweet_data = {}
