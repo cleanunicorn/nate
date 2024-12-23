@@ -5,6 +5,7 @@ from pathlib import Path
 import time
 import click
 from dotenv import load_dotenv
+from requests.exceptions import RequestException, ConnectionError, Timeout
 
 # Group app imports together
 from app.ai.agents.ToneAgent import ToneAgent
@@ -267,17 +268,16 @@ def twitter_reply(local, dry_run):
 def twitter_trending_crypto(category, analysis, dry_run):
     """Generate and post analytical tweets about trending cryptocurrencies"""
     try:
-        # Initialize CryptoService
         crypto_service = CryptoService()
         
         try:
-            coins = crypto_service.get_top_crypto_coins(limit=10)
+            coins = crypto_service.get_trending_coins(category=category, limit=10)
         except (RequestException, ConnectionError, Timeout) as e:
             click.echo(f"API Error: {str(e)}")
             return
             
         if not coins:
-            click.echo("Error: Unable to fetch cryptocurrency data")
+            click.echo(f"Error: Unable to fetch {category} cryptocurrency data")
             return
 
         # Format data for the tweet generator including hashtags
