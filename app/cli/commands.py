@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from app.ai.agents.ToneAgent import ToneAgent
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.twitter.TwitterClient import TwitterClient
-from app.services.CryptoService import get_top_crypto_coins
+from app.services.CryptoService import CryptoService
 
 # Load environment variables at module level
 load_dotenv()
@@ -256,55 +256,78 @@ def twitter_reply(local, dry_run):
     default='latest',
     help="Category of trending coins to analyze"
 )
+@click.option(
+    "--analysis",
+    "-a",
+    type=click.Choice(['market_overview', 'detailed_analysis']),
+    default='market_overview',
+    help="Type of analysis to generate"
+)
 @click.option("--dry-run", "-d", is_flag=True, help="Generate tweet without posting")
-def twitter_trending_crypto(category, dry_run):
+def twitter_trending_crypto(category, analysis, dry_run):
     """Generate and post analytical tweets about trending cryptocurrencies"""
-    # Get data from CryptoService
-    coins = get_top_crypto_coins()
-    
-    # Format data for the tweet generator
-    market_data = {
-        "assets": [
-            {
-                "symbol": coin['symbol'],
-                "price": coin['quote']['USD']['price'],
-                "change_24h": coin['quote']['USD']['percent_change_24h'],
-                "volume": coin['quote']['USD']['volume_24h'],
-                "market_cap": coin['quote']['USD']['market_cap'],
-                "name": coin['name']
-            }
-            for coin in coins[:10]  # Get top 10 coins
-        ]
-    }
+    try:
+        # Initialize CryptoService
+        crypto_service = CryptoService()
+        
+        try:
+            coins = crypto_service.get_top_crypto_coins(limit=10)
+        except (RequestException, ConnectionError, Timeout) as e:
+            click.echo(f"API Error: {str(e)}")
+            return
+            
+        if not coins:
+            click.echo("Error: Unable to fetch cryptocurrency data")
+            return
 
-    # Initialize tweet generator
-    generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
-    
-    # Generate analysis thread
-    analysis_thread = generator.create_crypto_analysis(
-        market_data=market_data,
-        analysis_type="market_overview"
-    )
+        # Format data for the tweet generator including hashtags
+        market_data = {
+            "assets": [
+                {
+                    "symbol": coin['symbol'],
+                    "price": coin['quote']['USD']['price'],
+                    "change_24h": coin['quote']['USD']['percent_change_24h'],
+                    "volume": coin['quote']['USD']['volume_24h'],
+                    "market_cap": coin['quote']['USD']['market_cap'],
+                    "name": coin['name'],
+                    "hashtags": ' '.join(coin['hashtags'])  # Include hashtags
+                }
+                for coin in coins
+            ]
+        }
 
-    # Display generated thread
-    click.echo("\nGenerated Crypto Analysis Thread:")
-    click.echo(f"Topic: {analysis_thread.topic}")
-    click.echo("---")
-    for i, tweet in enumerate(analysis_thread.tweets, 1):
-        click.echo(f"Tweet {i}:")
-        click.echo(tweet.text)
-        click.echo("---")
-
-    # Post the thread if not a dry run
-    if not dry_run:
-        client = TwitterClient(
-            api_key=getenv("TWITTER_API_KEY"),
-            api_secret=getenv("TWITTER_API_SECRET"),
-            access_token=getenv("TWITTER_ACCESS_TOKEN"),
-            access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
-            bearer_token=getenv("TWITTER_BEARER_TOKEN"),
+        # Initialize tweet generator
+        generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
+        
+        # Generate analysis thread
+        analysis_thread = generator.create_crypto_analysis(
+            market_data=market_data,
+            analysis_type=analysis
         )
-        client.post_thread(analysis_thread)
-        click.echo("Thread posted successfully!")
-    else:
-        click.echo("Dry run - thread not posted")
+
+        # Display generated thread
+        click.echo("\nGenerated Crypto Analysis Thread:")
+        click.echo(f"Topic: {analysis_thread.topic}")
+        click.echo("---")
+        for i, tweet in enumerate(analysis_thread.tweets, 1):
+            click.echo(f"Tweet {i}:")
+            click.echo(tweet.text)
+            click.echo("---")
+
+        # Post the thread if not a dry run
+        if not dry_run:
+            client = TwitterClient(
+                api_key=getenv("TWITTER_API_KEY"),
+                api_secret=getenv("TWITTER_API_SECRET"),
+                access_token=getenv("TWITTER_ACCESS_TOKEN"),
+                access_token_secret=getenv("TWITTER_ACCESS_TOKEN_SECRET"),
+                bearer_token=getenv("TWITTER_BEARER_TOKEN"),
+            )
+            client.post_thread(analysis_thread)
+            click.echo("Thread posted successfully!")
+        else:
+            click.echo("Dry run - thread not posted")
+            
+    except Exception as e:
+        click.echo(f"Error: {str(e)}")
+        return

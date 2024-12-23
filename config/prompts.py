@@ -98,20 +98,42 @@ Your analysis should be:
 - Avoid price predictions
 - Use professional language
 - Include relevant cashtags (e.g., $BTC, $ETH)
+- Strategically incorporate provided hashtags for visibility
+- End each tweet with 2-3 most relevant hashtags from those provided
 """
 
 CRYPTO_ANALYSIS_PROMPT = """Based on the following market data, create an analytical tweet thread discussing 
 the current state of these crypto assets. Focus on notable patterns, volume analysis, and market dynamics.
 
+IMPORTANT: 
+1. Begin your thread with the key conclusion/takeaway before diving into the details.
+2. Each tweet should end with 2-3 relevant hashtags from those provided in the market data.
+
 Market Data:
 {market_data}
+
+Guidelines:
+- Use the provided hashtags for each asset when discussing them
+- Include general crypto hashtags (#crypto, #cryptocurrency) strategically
+- Don't overload tweets with hashtags (2-3 per tweet maximum)
+- Place hashtags at the end of each tweet
 
 Create a thread that analyzes these assets, their performance, and any significant market developments."""
 
 CRYPTO_MARKET_OVERVIEW_PROMPT = """Create a concise market overview thread based on the following crypto market data. 
 Focus on key metrics and overall market sentiment.
 
+IMPORTANT: 
+1. Begin your thread with the key conclusion/takeaway before diving into the details.
+2. Each tweet should end with 2-3 relevant hashtags from those provided.
+
 Market Data:
 {market_data}
+
+Guidelines:
+- Use asset-specific hashtags when discussing particular cryptocurrencies
+- Include market sentiment hashtags (#bullish, #bearish) when appropriate
+- End each tweet with 2-3 most relevant hashtags
+- Don't overuse hashtags (maximum 3 per tweet)
 
 Create a brief overview thread highlighting the most important market movements and trends."""
