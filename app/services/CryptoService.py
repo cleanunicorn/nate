@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import requests
 from requests.exceptions import RequestException, HTTPError, ConnectionError, Timeout
 from ratelimit import limits, sleep_and_retry
+from app.core.config import APIConfig
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ CategoryType = Literal['latest', 'visited', 'gainers', 'losers']
 @dataclass
 class APIConfig:
     """Configuration for CoinGecko API endpoints"""
-    BASE_URL: str = 'https://api.coingecko.com/api/v3'
+    COINGECKO_BASE_URL: str = 'https://api.coingecko.com/api/v3'
     CALLS_PER_MINUTE = 50
     RATE_LIMIT = 50
     RATE_LIMIT_WINDOW = 60  # seconds
@@ -27,17 +28,25 @@ class APIConfig:
 class CryptoService:
     """Service for interacting with CoinGecko API"""
     
-    def __init__(self):
+    def __init__(self, api_config: Optional[APIConfig] = None):
+        """
+        Initialize CoinGecko API client
+        
+        Args:
+            api_config (Optional[APIConfig]): Configuration for API calls. 
+                                            If None, uses default values.
+        """
+        self.config = api_config or APIConfig()
+        self.base_url = self.config.COINGECKO_BASE_URL
         self.api_key = getenv('COINGECKO_API_KEY')
         if not self.api_key:
             raise ValueError("COINGECKO_API_KEY environment variable is not set")
-        self.config = APIConfig()
 
     @sleep_and_retry
     @limits(calls=APIConfig.CALLS_PER_MINUTE, period=APIConfig.RATE_LIMIT_WINDOW)
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
         """Make authenticated request to CoinGecko API with rate limiting"""
-        url = f'{self.config.BASE_URL}{endpoint}'
+        url = f'{self.base_url}{endpoint}'
         headers = {'X-Cg-demo-Api-Key': self.api_key}
         
         try:
@@ -123,15 +132,14 @@ class CryptoService:
 
     def _get_market_data(self, coin_ids: List[str]) -> List[Dict]:
         """Get detailed market data for specific coins"""
-        # First, ensure we have valid coin IDs
         params = {
             'vs_currency': 'usd',
             'ids': ','.join(coin_ids),
-            'sparkline': 'false'  # Removed price_change_percentage to simplify request
+            'order': 'market_cap_desc',
+            'price_change_percentage': '24h'
         }
         
         try:
-            logger.debug(f"Making request with params: {params}")  # Debug log
             coins = self._make_request(self.config.ENDPOINTS['markets'], params)
             return self._format_coins(coins)
         except Exception as e:

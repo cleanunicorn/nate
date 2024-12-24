@@ -98,15 +98,30 @@ Your task is to analyze cryptocurrency market data and create informative tweet 
 - Easy to understand for both beginners and experts
 - Focused on key market movements and trends
 
-For each analysis, consider:
-1. Price movements and market dynamics
-2. Trading volume and market depth
-3. Market sentiment and momentum
-4. Recent developments and news
-5. Technical indicators where relevant
+Thread Structure:
+1. Each tweet MUST be prefixed with current number, total, and icon (e.g., "1/4 📊", "2/4 📈", "3/4 💡", "4/4 🎯")
+2. First tweet MUST begin with the key conclusion/takeaway
+3. Subsequent tweets provide supporting analysis
+4. Each tweet MUST end with 2-3 relevant hashtags:
+   - Use provided asset-specific hashtags when discussing specific coins
+   - Include general tags (#crypto, #cryptocurrency) strategically
+   - Place all hashtags at the end of the tweet
 
-Format your response as a tweet thread, with each tweet numbered and under 280 characters.
-Include relevant hashtags and maintain a professional tone."""
+Example format:
+1/3 📊 Key conclusion about the market... #crypto #btc
+2/3 📈 Supporting analysis point... #ethereum #defi
+3/3 🎯 Final insights and outlook... #crypto #altcoins
+
+Suggested icons:
+- 📊 For market data and statistics
+- 📈 For price trends and analysis
+- 💡 For insights and observations
+- 🎯 For conclusions and predictions
+- 💰 For volume and trading info
+- ⚠️ For risks and warnings
+
+Format your response as a numbered tweet thread, with each tweet under 280 characters.
+For market overview, use 2-3 tweets. For detailed analysis, use 4-5 tweets."""
 
 # Category-specific analysis prompts
 CATEGORY_ANALYSIS_PROMPTS = {
@@ -116,7 +131,13 @@ Focus on:
 - Recent developments or announcements
 - Social media sentiment and community activity
 - Potential market impact and price action
-- Volume analysis and market depth""",
+- Volume analysis and market depth
+
+Remember:
+- Start with the most important trend/conclusion
+- Use asset-specific hashtags when discussing individual coins
+- End each tweet with 2-3 relevant hashtags
+- Place hashtags at the end of tweets""",
 
     'visited': """Analyze these highly-visited cryptocurrencies that are attracting significant attention.
 Focus on:
@@ -124,7 +145,13 @@ Focus on:
 - Market depth and liquidity analysis
 - Institutional vs retail interest
 - Cross-exchange activity
-- Market maker activity and order book analysis""",
+- Market maker activity and order book analysis
+
+Remember:
+- Lead with key volume/liquidity insights
+- Use asset-specific hashtags when discussing individual coins
+- End each tweet with 2-3 relevant hashtags
+- Place hashtags at the end of tweets""",
 
     'gainers': """Analyze these top-performing cryptocurrencies showing significant gains.
 Focus on:
@@ -132,7 +159,13 @@ Focus on:
 - Sustainability of the current momentum
 - Volume validation of the moves
 - Key resistance levels ahead
-- Risk factors to consider""",
+- Risk factors to consider
+
+Remember:
+- Start with the most significant gain/trend
+- Use asset-specific hashtags when discussing individual coins
+- End each tweet with 2-3 relevant hashtags
+- Place hashtags at the end of tweets""",
 
     'losers': """Analyze these cryptocurrencies showing significant price declines.
 Focus on:
@@ -140,7 +173,13 @@ Focus on:
 - Support levels and potential reversal zones
 - Volume patterns during the decline
 - Market sentiment and FUD analysis
-- Recovery potential and risk factors"""
+- Recovery potential and risk factors
+
+Remember:
+- Lead with key downside catalyst/trend
+- Use asset-specific hashtags when discussing individual coins
+- End each tweet with 2-3 relevant hashtags
+- Place hashtags at the end of tweets"""
 }
 
 # Analysis type templates
@@ -153,7 +192,7 @@ Market Data:
 {market_data}
 
 Guidelines:
-- Create 5-6 impactful tweets
+- Create 2-3 impactful tweets
 - Lead with the most significant trend or finding
 - Include key price levels and volume data
 - Add relevant hashtags for visibility
