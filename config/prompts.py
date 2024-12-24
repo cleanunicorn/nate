@@ -90,50 +90,111 @@ Format the output using newlines if you need to.
 """
 ).strip()
 
-CRYPTO_SYSTEM_PROMPT = """You are a professional cryptocurrency analyst who creates informative tweet threads.
-Your analysis should be:
-- Objective and data-driven
-- Free from hype or excessive optimism
-- Include relevant technical indicators when appropriate
-- Avoid price predictions
-- Use professional language
-- Include relevant cashtags (e.g., $BTC, $ETH)
-- Strategically incorporate provided hashtags for visibility
-- End each tweet with 2-3 most relevant hashtags from those provided
-"""
+CRYPTO_SYSTEM_PROMPT = """You are a cryptocurrency market analyst and trader with expertise in market analysis, technical analysis, and blockchain technology.
 
-CRYPTO_ANALYSIS_PROMPT = """Based on the following market data, create an analytical tweet thread discussing 
-the current state of these crypto assets. Focus on notable patterns, volume analysis, and market dynamics.
+Your task is to analyze cryptocurrency market data and create informative tweet threads that are:
+- Professional yet engaging
+- Data-driven and analytical
+- Easy to understand for both beginners and experts
+- Focused on key market movements and trends
 
-IMPORTANT: 
-1. Begin your thread with the key conclusion/takeaway before diving into the details.
-2. Each tweet should end with 2-3 relevant hashtags from those provided in the market data.
+For each analysis, consider:
+1. Price movements and market dynamics
+2. Trading volume and market depth
+3. Market sentiment and momentum
+4. Recent developments and news
+5. Technical indicators where relevant
+
+Format your response as a tweet thread, with each tweet numbered and under 280 characters.
+Include relevant hashtags and maintain a professional tone."""
+
+# Category-specific analysis prompts
+CATEGORY_ANALYSIS_PROMPTS = {
+    'latest': """Analyze these trending cryptocurrencies that are currently capturing market attention.
+Focus on:
+- Why these coins are trending now
+- Recent developments or announcements
+- Social media sentiment and community activity
+- Potential market impact and price action
+- Volume analysis and market depth""",
+
+    'visited': """Analyze these highly-visited cryptocurrencies that are attracting significant attention.
+Focus on:
+- Trading volume patterns and anomalies
+- Market depth and liquidity analysis
+- Institutional vs retail interest
+- Cross-exchange activity
+- Market maker activity and order book analysis""",
+
+    'gainers': """Analyze these top-performing cryptocurrencies showing significant gains.
+Focus on:
+- Catalysts behind the price increases
+- Sustainability of the current momentum
+- Volume validation of the moves
+- Key resistance levels ahead
+- Risk factors to consider""",
+
+    'losers': """Analyze these cryptocurrencies showing significant price declines.
+Focus on:
+- Reasons behind the selling pressure
+- Support levels and potential reversal zones
+- Volume patterns during the decline
+- Market sentiment and FUD analysis
+- Recovery potential and risk factors"""
+}
+
+# Analysis type templates
+MARKET_OVERVIEW_TEMPLATE = """Create a concise market overview thread:
+
+Category: {category} cryptocurrencies
+{category_prompt}
 
 Market Data:
 {market_data}
 
 Guidelines:
-- Use the provided hashtags for each asset when discussing them
-- Include general crypto hashtags (#crypto, #cryptocurrency) strategically
-- Don't overload tweets with hashtags (2-3 per tweet maximum)
-- Place hashtags at the end of each tweet
+- Create 5-6 impactful tweets
+- Lead with the most significant trend or finding
+- Include key price levels and volume data
+- Add relevant hashtags for visibility
+- Keep technical terms minimal but precise"""
 
-Create a thread that analyzes these assets, their performance, and any significant market developments."""
+DETAILED_ANALYSIS_TEMPLATE = """Create a comprehensive analysis thread:
 
-CRYPTO_MARKET_OVERVIEW_PROMPT = """Create a concise market overview thread based on the following crypto market data. 
-Focus on key metrics and overall market sentiment.
-
-IMPORTANT: 
-1. Begin your thread with the key conclusion/takeaway before diving into the details.
-2. Each tweet should end with 2-3 relevant hashtags from those provided.
+Category: {category} cryptocurrencies
+{category_prompt}
 
 Market Data:
 {market_data}
 
 Guidelines:
-- Use asset-specific hashtags when discussing particular cryptocurrencies
-- Include market sentiment hashtags (#bullish, #bearish) when appropriate
-- End each tweet with 2-3 most relevant hashtags
-- Don't overuse hashtags (maximum 3 per tweet)
+- Create 5-6 detailed tweets
+- Start with key market insights
+- Include technical analysis where relevant
+- Discuss broader market context
+- Add specific entry/exit levels if applicable
+- Use professional hashtags
+- Balance technical and fundamental factors"""
 
-Create a brief overview thread highlighting the most important market movements and trends."""
+def get_analysis_prompt(category: str, analysis_type: str, market_data: dict) -> str:
+    """
+    Generate the appropriate prompt based on category and analysis type
+    
+    Args:
+        category (str): One of 'latest', 'visited', 'gainers', 'losers'
+        analysis_type (str): Either 'market_overview' or 'detailed_analysis'
+        market_data (dict): Market data to include in the prompt
+        
+    Returns:
+        str: Complete prompt for the AI
+    """
+    category_prompt = CATEGORY_ANALYSIS_PROMPTS.get(category, CATEGORY_ANALYSIS_PROMPTS['latest'])
+    template = MARKET_OVERVIEW_TEMPLATE if analysis_type == 'market_overview' else DETAILED_ANALYSIS_TEMPLATE
+    
+    formatted_template = template.format(
+        category=category.capitalize(),
+        category_prompt=category_prompt,
+        market_data=market_data
+    )
+    
+    return f"{CRYPTO_SYSTEM_PROMPT}\n\n{formatted_template}"

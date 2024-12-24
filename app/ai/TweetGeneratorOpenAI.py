@@ -1,3 +1,5 @@
+import logging
+
 from openai import OpenAI
 
 from app.ai.models import CryptoAnalysisThread, TweetModel, TweetThreadModel
@@ -8,18 +10,27 @@ from config.prompts import (
     TWITTER_PROMPT_THREAD,
     TWITTER_PROMPT_REPLY,
     CRYPTO_SYSTEM_PROMPT,
-    CRYPTO_ANALYSIS_PROMPT,
-    CRYPTO_MARKET_OVERVIEW_PROMPT,
+    get_analysis_prompt
 )
 from app.utils.utils import format_tweet_timeline
+from app.core.exceptions import AIGenerationError
+
+logger = logging.getLogger(__name__)
 
 
 class TweetGeneratorOpenAI:
     def __init__(self, api_key: str):
+        """
+        Initialize the tweet generator with OpenAI API key
+        
+        Args:
+            api_key (str): OpenAI API key for authentication
+        """
         self.system = SYSTEM_PROMPT
         self.crypto_system = CRYPTO_SYSTEM_PROMPT
         self.prompt = USER_PROMPT_TWITTER
         self.client = OpenAI(api_key=api_key)
+        self.model = "gpt-4"
 
     def _deduplicate_mentions(self, content: TweetModel | TweetThreadModel) -> TweetModel | TweetThreadModel:
         mentioned_tweets = {}
@@ -100,34 +111,55 @@ class TweetGeneratorOpenAI:
     def create_crypto_analysis(
         self,
         market_data: dict,
-        analysis_type: str = "general",
-        response_format: type = CryptoAnalysisThread,
+        category: str = 'latest',
+        analysis_type: str = 'market_overview'
     ) -> CryptoAnalysisThread:
-        """Generate crypto market analysis tweets"""
-        formatted_data = self._format_crypto_data(market_data)
+        """
+        Create a cryptocurrency market analysis thread
         
-        prompt = (
-            CRYPTO_MARKET_OVERVIEW_PROMPT
-            if analysis_type == "market_overview"
-            else CRYPTO_ANALYSIS_PROMPT
-        )
-
+        Args:
+            market_data (dict): Market data to analyze, containing price, volume, and other metrics
+            category (str): Type of analysis to perform. One of:
+                - 'latest': Currently trending cryptocurrencies
+                - 'visited': Most viewed cryptocurrencies
+                - 'gainers': Top gaining cryptocurrencies
+                - 'losers': Top losing cryptocurrencies
+            analysis_type (str): Depth of analysis. One of:
+                - 'market_overview': Brief 2-3 tweet summary
+                - 'detailed_analysis': Comprehensive 4-5 tweet analysis
+            
+        Returns:
+            CryptoAnalysisThread: Generated analysis thread with tweets and metadata
+            
+        Raises:
+            AIGenerationError: If tweet generation fails
+        """
         messages = [
             {"role": "system", "content": self.crypto_system},
             {
                 "role": "user",
-                "content": prompt.format(market_data=formatted_data),
-            },
+                "content": get_analysis_prompt(
+                    category=category,
+                    analysis_type=analysis_type,
+                    market_data=market_data
+                )
+            }
         ]
 
-        response = self.client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
-            messages=messages,
-            response_format=response_format,
-            temperature=1.2,
-            top_p=0.85,
-            presence_penalty=0.15,
-        )
-
-        content = response.choices[0].message.parsed
-        return self._deduplicate_mentions(content)
+        try:
+            response = self.client.beta.chat.completions.parse(
+                model="gpt-4o-mini",
+                messages=messages,
+                response_format=CryptoAnalysisThread,
+                temperature=1.2,
+                top_p=0.85,
+                presence_penalty=0.15,
+            )
+            
+            # Get the parsed content and deduplicate mentions
+            content = response.choices[0].message.parsed
+            return self._deduplicate_mentions(content)
+            
+        except Exception as e:
+            logger.error(f"Failed to generate crypto analysis: {str(e)}")
+            raise AIGenerationError("Failed to generate cryptocurrency analysis") from e
