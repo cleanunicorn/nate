@@ -14,6 +14,7 @@ from config.prompts import (
 )
 from app.utils.utils import format_tweet_timeline
 from app.core.exceptions import AIGenerationError
+from app.ai.agents.ToneAgent import ToneAgent
 
 logger = logging.getLogger(__name__)
 
@@ -112,52 +113,49 @@ class TweetGeneratorOpenAI:
         self,
         market_data: dict,
         category: str = 'latest',
-        analysis_type: str = 'market_overview'
+        analysis_type: str = 'market_overview',
+        tone_agent: ToneAgent = None
     ) -> CryptoAnalysisThread:
         """
-        Create a cryptocurrency market analysis thread
+        Create a cryptocurrency market analysis thread with optional tone adjustment
         
         Args:
             market_data (dict): Market data to analyze, containing price, volume, and other metrics
-            category (str): Type of analysis to perform. One of:
-                - 'latest': Currently trending cryptocurrencies
-                - 'visited': Most viewed cryptocurrencies
-                - 'gainers': Top gaining cryptocurrencies
-                - 'losers': Top losing cryptocurrencies
-            analysis_type (str): Depth of analysis. One of:
-                - 'market_overview': Brief 2-3 tweet summary
-                - 'detailed_analysis': Comprehensive 4-5 tweet analysis
+            category (str): Type of analysis to perform
+            analysis_type (str): Depth of analysis
+            tone_agent (ToneAgent, optional): Agent for adjusting tweet tone
             
         Returns:
             CryptoAnalysisThread: Generated analysis thread with tweets and metadata
-            
-        Raises:
-            AIGenerationError: If tweet generation fails
         """
-        messages = [
-            {"role": "system", "content": self.crypto_system},
-            {
-                "role": "user",
-                "content": get_analysis_prompt(
-                    category=category,
-                    analysis_type=analysis_type,
-                    market_data=market_data
-                )
-            }
-        ]
-
         try:
+            # Get the appropriate prompt based on category and analysis type
+            prompt = get_analysis_prompt(
+                category=category,
+                analysis_type=analysis_type,
+                market_data=market_data
+            )
+            
+            # Generate initial analysis
             response = self.client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
-                messages=messages,
+                messages=[
+                    {"role": "system", "content": prompt}
+                ],
                 response_format=CryptoAnalysisThread,
                 temperature=1.2,
                 top_p=0.85,
                 presence_penalty=0.15,
             )
             
-            # Get the parsed content and deduplicate mentions
+            # Get the parsed content
             content = response.choices[0].message.parsed
+            
+            # Adjust tone if tone agent is provided
+            if tone_agent:
+                content = tone_agent.adjust_tone_thread(content)
+            
+            # Deduplicate mentions and return
             return self._deduplicate_mentions(content)
             
         except Exception as e:
