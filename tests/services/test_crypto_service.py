@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 import pytest
 from pytest_check import check
 import requests
+from app.core.exceptions import RateLimitError
 from app.services.CryptoService import CryptoService
 from config.api_config import APIConfig
 
@@ -160,13 +161,18 @@ class TestCryptoService:
                 check.less(percent_change, 0)
             
     def test_rate_limit_handling(self):
-        """Test handling of rate limit errors"""
-        mock_response = Mock(status_code=429)
-        mock_response.raise_for_status.side_effect = requests.exceptions.HTTPError(
-            response=Mock(status_code=429)
-        )
-        self.mock_get.return_value = mock_response
+        """Test handling of rate limit responses."""
+        # Create a proper response object with status code
+        response = Mock()
+        response.status_code = 429
         
-        with pytest.raises(requests.exceptions.RequestException) as exc_info:
+        # Create HTTPError with proper response
+        http_error = requests.exceptions.HTTPError()
+        http_error.response = response
+        
+        # Set up the mock to raise the error
+        self.mock_get.side_effect = http_error
+        
+        with pytest.raises(RateLimitError) as exc_info:
             self.service.get_search_trending_coins()
-        check.is_in("Rate limit exceeded", str(exc_info.value))
+        assert "Rate limit exceeded" in str(exc_info.value)

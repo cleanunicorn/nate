@@ -2,7 +2,11 @@ import logging
 
 from openai import OpenAI
 
-from app.ai.models import CryptoAnalysisThread, TweetModel, TweetThreadModel
+from app.ai.models import (
+    TweetModel,
+    TweetThreadModel,
+    CryptoAnalysisThreadModel
+)
 from config.prompts import (
     SYSTEM_PROMPT,
     USER_PROMPT_TWITTER,
@@ -13,7 +17,12 @@ from config.prompts import (
     get_analysis_prompt
 )
 from app.utils.utils import format_tweet_timeline
-from app.core.exceptions import AIGenerationError
+from app.core.exceptions import (
+    TweetGenerationError,
+    TweetFormatError,
+    MarketDataError,
+    DataFormatError
+)
 from app.ai.agents.ToneAgent import ToneAgent
 
 logger = logging.getLogger(__name__)
@@ -115,7 +124,7 @@ class TweetGeneratorOpenAI:
         category: str = 'latest',
         analysis_type: str = 'market_overview',
         tone_agent: ToneAgent = None
-    ) -> CryptoAnalysisThread:
+    ) -> CryptoAnalysisThreadModel:
         """Create a cryptocurrency market analysis thread with optional tone adjustment.
         
         Args:
@@ -125,38 +134,80 @@ class TweetGeneratorOpenAI:
             tone_agent (ToneAgent, optional): Agent for adjusting tweet tone
             
         Returns:
-            CryptoAnalysisThread: Generated analysis thread with tweets and metadata
+            CryptoAnalysisThreadModel: Generated analysis thread with tweets and metadata
+            
+        Raises:
+            MarketDataError: If market data is invalid
+            DataFormatError: If required fields are missing
+            TweetFormatError: If generated tweets don't match required format
+            TweetGenerationError: If generation fails
         """
         try:
-            # Get the appropriate prompt based on category and analysis type
+            logger.debug(f"Creating crypto analysis with data: {market_data}")
+            
+            if not market_data or not isinstance(market_data, dict):
+                logger.error("Invalid market data format")
+                raise MarketDataError("Invalid or empty market data")
+
+            # Log the data structure
+            logger.debug(f"Market data keys: {market_data.keys()}")
+            if 'assets' in market_data:
+                logger.debug(f"First asset keys: {market_data['assets'][0].keys() if market_data['assets'] else 'No assets'}")
+            
             prompt = get_analysis_prompt(
                 category=category,
                 analysis_type=analysis_type,
                 market_data=market_data
             )
             
-            # Generate initial analysis
+            logger.debug(f"Generated prompt: {prompt}")
+            
             response = self.client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
                 messages=[
                     {"role": "system", "content": prompt}
                 ],
-                response_format=CryptoAnalysisThread,
+                response_format=CryptoAnalysisThreadModel,
                 temperature=1.2,
                 top_p=0.85,
                 presence_penalty=0.15,
             )
             
-            # Get the parsed content
             content = response.choices[0].message.parsed
             
-            # Adjust tone if tone agent is provided
+            # Validate tweet format
+            # if not self._validate_tweet_format(content):
+                # raise TweetFormatError("Generated tweets don't match required format")
+            
+            # Adjust tone if agent provided
             if tone_agent:
                 content = tone_agent.adjust_tone_thread(content)
             
-            # Deduplicate mentions and return
             return self._deduplicate_mentions(content)
             
         except Exception as e:
             logger.error(f"Failed to generate crypto analysis: {str(e)}")
-            raise AIGenerationError("Failed to generate cryptocurrency analysis") from e
+            raise TweetGenerationError("Failed to generate cryptocurrency analysis") from e
+
+    # TODO: Implement proper tweet format validation
+    # def _validate_tweet_format(self, content: CryptoAnalysisThreadModel) -> bool:
+    #     """Validate that tweets follow required format.
+    #     
+    #     Args:
+    #         content (CryptoAnalysisThreadModel): Generated thread to validate
+    #         
+    #     Returns:
+    #         bool: True if format is valid, False otherwise
+    #     """
+    #     try:
+    #         first_tweet = content.tweets[0].text
+    #         # Check for required elements
+    #         if not "📊 Crypto Trend Analysis" in first_tweet:
+    #             return False
+    #         if not "Coins Right Now:" in first_tweet:
+    #             return False
+    #         if not all(f"${coin.symbol}:" in first_tweet for coin in content.coins):
+    #             return False
+    #         return True
+    #     except (AttributeError, IndexError):
+    #         return False

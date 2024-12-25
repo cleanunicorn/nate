@@ -12,6 +12,11 @@ from app.ai.agents.ToneAgent import ToneAgent
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.twitter.TwitterClient import TwitterClient
 from app.services.CryptoService import CryptoService
+from app.core.exceptions import (
+    CryptoAPIError,
+    RateLimitError,
+    DataFormatError
+)
 
 # Load environment variables at module level
 load_dotenv()
@@ -286,15 +291,16 @@ def twitter_trending_crypto(category, analysis, dry_run):
 
         # Format data for the tweet generator including hashtags
         market_data = {
+            "category": category,
             "assets": [
                 {
                     "symbol": coin['symbol'],
                     "price": coin['quote']['USD']['price'],
-                    "change_24h": coin['quote']['USD']['percent_change_24h'],
-                    "volume": coin['quote']['USD']['volume_24h'],
+                    "price_change": coin['quote']['USD']['percent_change_24h'],
+                    "volume_24h": coin['quote']['USD']['volume_24h'],
                     "market_cap": coin['quote']['USD']['market_cap'],
                     "name": coin['name'],
-                    "hashtags": ' '.join(coin['hashtags'])  # Include hashtags
+                    "hashtags": ' '.join(coin['hashtags']) if 'hashtags' in coin else ''
                 }
                 for coin in coins
             ]
@@ -304,9 +310,13 @@ def twitter_trending_crypto(category, analysis, dry_run):
         generator = TweetGeneratorOpenAI(api_key=getenv("OPENAI_API_KEY"))
         
         # Generate analysis thread
+        tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+
         analysis_thread = generator.create_crypto_analysis(
             market_data=market_data,
-            analysis_type=analysis
+            category=category,
+            analysis_type=analysis,
+            tone_agent=tone_agent
         )
 
         # Display generated thread

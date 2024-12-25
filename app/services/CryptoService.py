@@ -6,10 +6,18 @@ import requests
 from requests.exceptions import RequestException, HTTPError, ConnectionError, Timeout
 from ratelimit import limits, sleep_and_retry
 from config.api_config import APIConfig
+from app.core.exceptions import (
+    CryptoAPIError,
+    RateLimitError,
+    DataFormatError,
+    CoinLimitError,
+    MarketDataError
+)
 
 logger = logging.getLogger(__name__)
 
 CategoryType = Literal['latest', 'visited', 'gainers', 'losers']
+TRENDING_COINS_LIMIT = 3
 
 class CryptoService:
     """Service for interacting with CoinGecko API."""
@@ -92,26 +100,39 @@ class CryptoService:
         calls=APIConfig.COINGECKO_CALLS_PER_MINUTE,
         period=APIConfig.COINGECKO_RATE_LIMIT_WINDOW
     )
-    def get_search_trending_coins(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def get_search_trending_coins(self, limit: int = TRENDING_COINS_LIMIT) -> List[Dict[str, Any]]:
         """Fetch trending cryptocurrencies from the search/trending endpoint.
         
         Args:
-            limit: Maximum number of coins to return.
+            limit (int, optional): Maximum number of coins to return. Defaults to TRENDING_COINS_LIMIT.
             
         Returns:
-            List of formatted coin data.
+            List[Dict[str, Any]]: List of trending coins with market data
             
         Raises:
-            ValueError: If limit is not a positive integer.
+            CoinLimitError: If limit is invalid
+            RateLimitError: If API rate limit is exceeded
+            CryptoAPIError: If API request fails
+            DataFormatError: If response format is invalid
         """
         if not isinstance(limit, int) or limit < 1:
-            raise ValueError("Limit must be a positive integer")
+            raise CoinLimitError("Limit must be a positive integer")
+        if limit > TRENDING_COINS_LIMIT:
+            raise CoinLimitError(f"Limit cannot exceed {TRENDING_COINS_LIMIT}")
 
         try:
-            return self._fetch_trending_search_coins(limit)
-        except Exception as e:
-            logger.error(f"Failed to fetch search trending coins: {str(e)}")
-            raise
+            data = self._fetch_trending_search_coins(limit)
+            if not data:
+                raise MarketDataError("No trending coins data received")
+            return data
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded") from e
+            raise CryptoAPIError(f"API request failed: {str(e)}") from e
+        except requests.exceptions.RequestException as e:
+            raise CryptoAPIError(f"Request failed: {str(e)}") from e
+        except (KeyError, ValueError) as e:
+            raise DataFormatError(f"Invalid data format: {str(e)}") from e
 
     @sleep_and_retry
     @limits(
@@ -121,13 +142,13 @@ class CryptoService:
     def get_market_trending_coins(
         self,
         category: Literal['visited', 'gainers', 'losers'],
-        limit: int = 10
+        limit: int = TRENDING_COINS_LIMIT
     ) -> List[Dict[str, Any]]:
         """Fetch trending cryptocurrencies from the coins/markets endpoint.
         
         Args:
-            category: Type of market data to fetch ('visited', 'gainers', 'losers').
-            limit: Maximum number of coins to return.
+            category: Type of market data to fetch ('visited', 'gainers', 'losers')
+            limit: Maximum number of coins to return (default: 3)
             
         Returns:
             List of formatted coin data sorted by the specified category.
@@ -178,6 +199,12 @@ class CryptoService:
         Raises:
             Exception: If market data fetch fails.
         """
+        market_data = self._fetch_raw_market_data()
+        sorted_data = self._sort_market_data(market_data, category)
+        return self._format_coins(sorted_data[:limit])
+
+    def _fetch_raw_market_data(self) -> List[Dict[str, Any]]:
+        """Fetch raw market data from the API."""
         params = {
             'vs_currency': 'usd',
             'per_page': '250',  # Get more coins to sort through
@@ -186,19 +213,42 @@ class CryptoService:
             'sparkline': 'false',
             'price_change_percentage': '24h'
         }
+        return self._make_request(self.config.ENDPOINTS['markets'], params)
+
+    def _sort_market_data(
+        self,
+        market_data: List[Dict[str, Any]],
+        category: Literal['visited', 'gainers', 'losers']
+    ) -> List[Dict[str, Any]]:
+        """Sort market data based on category."""
+        if category == 'visited':
+            return self._sort_by_volume(market_data)
+        return self._sort_by_price_change(market_data, reverse=category=='gainers')
+
+    def _sort_by_volume(self, data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Sort data by trading volume, higher volume first."""
+        return sorted(
+            data,
+            key=lambda x: float(x.get('total_volume', 0) or 0),
+            reverse=True  # Higher volume first
+        )
+
+    def _sort_by_price_change(
+        self,
+        data: List[Dict[str, Any]],
+        reverse: bool = True
+    ) -> List[Dict[str, Any]]:
+        """Sort data by price change percentage.
         
-        market_data = self._make_request(self.config.ENDPOINTS['markets'], params)
-        
-        sort_key_map = {
-            'visited': lambda x: float(x.get('total_volume', 0) or 0),
-            'gainers': lambda x: float(x.get('price_change_percentage_24h', 0) or 0),
-            'losers': lambda x: float(x.get('price_change_percentage_24h', 0) or 0)
-        }
-        
-        reverse_sort = category != 'losers'
-        market_data.sort(key=sort_key_map[category], reverse=reverse_sort)
-        
-        return self._format_coins(market_data[:limit])
+        Args:
+            data: List of coin data to sort
+            reverse: If True, sort gainers (high to low), if False, sort losers (low to high)
+        """
+        return sorted(
+            data,
+            key=lambda x: float(x.get('price_change_percentage_24h', 0) or 0),
+            reverse=reverse
+        )
 
     def _get_market_data(self, coin_ids: List[str]) -> List[Dict]:
         """Get detailed market data for specific coins"""

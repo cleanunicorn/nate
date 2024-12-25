@@ -1,47 +1,51 @@
-from typing import Optional
+from typing import List, Optional, Literal
+from datetime import datetime, timezone
 from pydantic import BaseModel
-from dataclasses import dataclass
-from typing import List
 
 
 class TweetModel(BaseModel):
-    quote_tweet_id: Optional[int]
+    """Single tweet with metadata."""
+    quote_tweet_id: Optional[str]
     text: str
     username: str
 
 
 class TweetThreadModel(BaseModel):
-    tweets: list[TweetModel]
+    """Base class for tweet threads."""
     topic: str
+    tweets: List[TweetModel]
+    timestamp: str
 
 
-class CryptoTweetModel(BaseModel):
-    text: str
-    quote_tweet_id: Optional[str] = None
+class CoinPrice(BaseModel):
+    """Price information for a cryptocurrency."""
+    current_price: float
+    percent_change_24h: float
+    volume_24h: float
+    market_cap: float
 
 
-class CryptoAnalysisThread(BaseModel):
-    topic: str
-    market_summary: str
-    tweets: List[CryptoTweetModel]
+class TrendingCoin(BaseModel):
+    """Standardized coin data model."""
+    id: str
+    symbol: str
+    name: str
+    price_data: CoinPrice
+    rank: Optional[int] = None
+    last_updated: str
 
-    class Config:
-        schema_extra = {
-            "type": "object",
-            "properties": {
-                "topic": {"type": "string"},
-                "market_summary": {"type": "string"},
-                "tweets": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "text": {"type": "string"},
-                            "quote_tweet_id": {"type": ["string", "null"]}
-                        },
-                        "required": ["text"]
-                    }
-                }
-            },
-            "required": ["topic", "market_summary", "tweets"]
-        }
+
+class MarketSentiment(BaseModel):
+    """Overall market sentiment analysis."""
+    trend: Literal['bullish', 'bearish', 'neutral']
+    strength: Literal['strong', 'moderate', 'weak']
+    volume_rating: Literal['high', 'moderate', 'low']
+    key_factors: List[str]
+    timestamp: str
+
+
+class CryptoAnalysisThreadModel(TweetThreadModel):
+    """Cryptocurrency analysis thread with market data and sentiment."""
+    coins: List[CoinPrice]
+    generated_at: str
+

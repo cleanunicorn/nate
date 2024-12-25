@@ -121,7 +121,26 @@ Suggested icons:
 - ⚠️ For risks and warnings
 
 Format your response as a numbered tweet thread, with each tweet under 280 characters.
-For market overview, use 2-3 tweets. For detailed analysis, use 4-5 tweets."""
+For market overview, use 2-3 tweets. For detailed analysis, use 4-5 tweets.
+
+Required Tweet Format:
+📊 Crypto Trend Analysis
+{Category} Coins Right Now:
+1. $SYMBOL: {price_change}% (24h)
+   Volume: ${volume_24h}B | MC: ${market_cap}B
+2. $SYMBOL: {price_change}% (24h)
+   Volume: ${volume_24h}B | MC: ${market_cap}B
+3. $SYMBOL: {price_change}% (24h)
+   Volume: ${volume_24h}B | MC: ${market_cap}B
+
+Important:
+- Always analyze exactly 3 coins, no more, no less
+- Follow the required format for each coin
+- Format all numbers in billions (B) or millions (M):
+  - Use 45.2B instead of 45,200,000,000
+  - Use 20.1M instead of 20,100,000
+  - Always include one decimal place
+"""
 
 # Category-specific analysis prompts
 CATEGORY_ANALYSIS_PROMPTS = {
@@ -137,7 +156,21 @@ Remember:
 - Start with the most important trend/conclusion
 - Use asset-specific hashtags when discussing individual coins
 - End each tweet with 2-3 relevant hashtags
-- Place hashtags at the end of tweets""",
+- Place hashtags at the end of tweets
+
+Important:
+- Focus on exactly 3 trending cryptocurrencies
+- Format numbers consistently: 45.2B not 45,200,000,000
+
+Thread Structure:
+1. Each tweet MUST be prefixed with current number, total, and icon (e.g., "1/4 📊", "2/4 📈", "3/4 💡", "4/4 🎯")
+2. First tweet MUST begin with the key conclusion/takeaway
+3. Subsequent tweets provide supporting analysis
+4. Each tweet MUST end with 2-3 relevant hashtags:
+   - Use provided asset-specific hashtags when discussing specific coins
+   - Include general tags (#crypto, #cryptocurrency) strategically
+   - Place all hashtags at the end of the tweet
+""",
 
     'visited': """Analyze these highly-visited cryptocurrencies that are attracting significant attention.
 Focus on:
@@ -151,7 +184,21 @@ Remember:
 - Lead with key volume/liquidity insights
 - Use asset-specific hashtags when discussing individual coins
 - End each tweet with 2-3 relevant hashtags
-- Place hashtags at the end of tweets""",
+- Place hashtags at the end of tweets
+
+Important:
+- Focus on exactly 3 most visited cryptocurrencies
+- Format numbers consistently: 45.2B not 45,200,000,000
+
+Thread Structure:
+1. Each tweet MUST be prefixed with current number, total, and icon (e.g., "1/4 📊", "2/4 📈", "3/4 💡", "4/4 🎯")
+2. First tweet MUST begin with the key conclusion/takeaway
+3. Subsequent tweets provide supporting analysis
+4. Each tweet MUST end with 2-3 relevant hashtags:
+   - Use provided asset-specific hashtags when discussing specific coins
+   - Include general tags (#crypto, #cryptocurrency) strategically
+   - Place all hashtags at the end of the tweet
+""",
 
     'gainers': """Analyze these top-performing cryptocurrencies showing significant gains.
 Focus on:
@@ -165,7 +212,21 @@ Remember:
 - Start with the most significant gain/trend
 - Use asset-specific hashtags when discussing individual coins
 - End each tweet with 2-3 relevant hashtags
-- Place hashtags at the end of tweets""",
+- Place hashtags at the end of tweets
+
+Important:
+- Focus on exactly 3 top gaining cryptocurrencies
+- Format numbers consistently: 45.2B not 45,200,000,000
+
+Thread Structure:
+1. Each tweet MUST be prefixed with current number, total, and icon (e.g., "1/4 📊", "2/4 📈", "3/4 💡", "4/4 🎯")
+2. First tweet MUST begin with the key conclusion/takeaway
+3. Subsequent tweets provide supporting analysis
+4. Each tweet MUST end with 2-3 relevant hashtags:
+   - Use provided asset-specific hashtags when discussing specific coins
+   - Include general tags (#crypto, #cryptocurrency) strategically
+   - Place all hashtags at the end of the tweet
+""",
 
     'losers': """Analyze these cryptocurrencies showing significant price declines.
 Focus on:
@@ -179,32 +240,53 @@ Remember:
 - Lead with key downside catalyst/trend
 - Use asset-specific hashtags when discussing individual coins
 - End each tweet with 2-3 relevant hashtags
-- Place hashtags at the end of tweets"""
+- Place hashtags at the end of tweets
+
+Important:
+- Focus on exactly 3 declining cryptocurrencies
+- Format numbers consistently: 45.2B not 45,200,000,000
+
+Thread Structure:
+1. Each tweet MUST be prefixed with current number, total, and icon (e.g., "1/4 📊", "2/4 📈", "3/4 💡", "4/4 🎯")
+2. First tweet MUST begin with the key conclusion/takeaway
+3. Subsequent tweets provide supporting analysis
+4. Each tweet MUST end with 2-3 relevant hashtags:
+   - Use provided asset-specific hashtags when discussing specific coins
+   - Include general tags (#crypto, #cryptocurrency) strategically
+   - Place all hashtags at the end of the tweet
+"""
 }
 
 # Analysis type templates
 MARKET_OVERVIEW_TEMPLATE = """Create a concise market overview thread:
 
-Category: {category} cryptocurrencies
+Category: {Category} cryptocurrencies
 {category_prompt}
 
 Market Data:
 {market_data}
+
+Current Format Example:
+{example_format}
 
 Guidelines:
 - Create 2-3 impactful tweets
 - Lead with the most significant trend or finding
 - Include key price levels and volume data
 - Add relevant hashtags for visibility
-- Keep technical terms minimal but precise"""
+- Keep technical terms minimal but precise
+"""
 
 DETAILED_ANALYSIS_TEMPLATE = """Create a comprehensive analysis thread:
 
-Category: {category} cryptocurrencies
+Category: {Category} cryptocurrencies
 {category_prompt}
 
 Market Data:
 {market_data}
+
+Current Format Example:
+{example_format}
 
 Guidelines:
 - Create 5-6 detailed tweets
@@ -213,27 +295,37 @@ Guidelines:
 - Discuss broader market context
 - Add specific entry/exit levels if applicable
 - Use professional hashtags
-- Balance technical and fundamental factors"""
+- Balance technical and fundamental factors
+"""
 
 def get_analysis_prompt(category: str, analysis_type: str, market_data: dict) -> str:
-    """
-    Generate the appropriate prompt based on category and analysis type
+    """Generate the appropriate prompt based on category and analysis type"""
+    market_data = market_data.copy()
     
-    Args:
-        category (str): One of 'latest', 'visited', 'gainers', 'losers'
-        analysis_type (str): Either 'market_overview' or 'detailed_analysis'
-        market_data (dict): Market data to include in the prompt
-        
-    Returns:
-        str: Complete prompt for the AI
-    """
     category_prompt = CATEGORY_ANALYSIS_PROMPTS.get(category, CATEGORY_ANALYSIS_PROMPTS['latest'])
     template = MARKET_OVERVIEW_TEMPLATE if analysis_type == 'market_overview' else DETAILED_ANALYSIS_TEMPLATE
     
+    # Use a real-world example format
+    example_format = """📊 Crypto Trend Analysis #crypto
+
+Top 3 Gainers Today:
+1. $BTC: +15.2% (24h)
+   Volume: $45.2B | MC: $850B
+2. $ETH: +12.1% (24h)
+   Volume: $20.1B | MC: $350B
+3. $SOL: +8.5% (24h)
+   Volume: $5.2B | MC: $45B
+
+Key Metrics & Analysis 🔍
+#cryptocurrency #trading"""
+
+    # Format the template with real market data
     formatted_template = template.format(
-        category=category.capitalize(),
+        Category=category.capitalize(),
         category_prompt=category_prompt,
-        market_data=market_data
+        market_data=market_data,
+        example_format=example_format
     )
     
     return f"{CRYPTO_SYSTEM_PROMPT}\n\n{formatted_template}"
+
