@@ -23,6 +23,7 @@ def mock_market_data():
             'market_cap': 1000000000000,
             'total_volume': 50000000000,
             'price_change_percentage_24h': 5.5,
-            'market_cap_rank': 1
+            'market_cap_rank': 1,
+            'roi': None
         }
     ] 
