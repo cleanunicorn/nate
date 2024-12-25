@@ -3,7 +3,7 @@ import pytest
 from pytest_check import check
 import requests
 from app.services.CryptoService import CryptoService
-from app.core.config import APIConfig
+from config.api_config import APIConfig
 
 class TestCryptoService:
     @pytest.fixture(autouse=True)
@@ -25,8 +25,8 @@ class TestCryptoService:
         """Stop request patching after each test"""
         self.requests_patcher.stop()
 
-    def test_get_trending_coins_latest(self):
-        """Test fetching latest trending coins"""
+    def test_get_search_trending_coins(self):
+        """Test fetching trending coins from search endpoint"""
         # First request for trending
         trending_response = Mock(status_code=200)
         trending_response.json.return_value = {
@@ -64,7 +64,7 @@ class TestCryptoService:
         
         self.mock_get.side_effect = [trending_response, market_response]
         
-        result = self.service.get_trending_coins(category='latest')
+        result = self.service.get_search_trending_coins()
         
         with check:
             check.is_true(isinstance(result, list))
@@ -78,9 +78,8 @@ class TestCryptoService:
                 check.equal(result[0]['quote']['USD']['volume_24h'], 50000000000)
                 check.equal(result[0]['quote']['USD']['percent_change_24h'], 5.5)
         
-    def test_get_trending_coins_visited(self):
-        """Test fetching most visited coins"""
-        # First request for markets data
+    def test_get_market_trending_coins_visited(self):
+        """Test fetching most visited coins from markets endpoint"""
         visited_markets_response = Mock(status_code=200)
         visited_markets_response.json.return_value = [{
             'id': 'bitcoin',
@@ -95,13 +94,8 @@ class TestCryptoService:
             'sparkline_in_7d': {'price': []}
         }]
         
-        # Second request for visited coins data
-        visited_coins_response = Mock(status_code=200)
-        visited_coins_response.json.return_value = visited_markets_response.json.return_value
-        
-        self.mock_get.side_effect = [visited_markets_response, visited_coins_response]
-        
-        result = self.service.get_trending_coins(category='visited')
+        self.mock_get.return_value = visited_markets_response
+        result = self.service.get_market_trending_coins(category='visited')
         
         with check:
             check.is_true(isinstance(result, list))
@@ -111,9 +105,8 @@ class TestCryptoService:
                 volume_24h = coin['quote']['USD']['volume_24h']
                 check.greater(volume_24h, 0)
         
-    def test_get_trending_coins_gainers(self):
-        """Test fetching top gainers"""
-        # First request for markets data
+    def test_get_market_trending_coins_gainers(self):
+        """Test fetching top gainers from markets endpoint"""
         gainers_markets_response = Mock(status_code=200)
         gainers_markets_response.json.return_value = [{
             'id': 'bitcoin',
@@ -128,13 +121,8 @@ class TestCryptoService:
             'sparkline_in_7d': {'price': []}
         }]
         
-        # Second request for gainers data
-        gainers_coins_response = Mock(status_code=200)
-        gainers_coins_response.json.return_value = gainers_markets_response.json.return_value
-        
-        self.mock_get.side_effect = [gainers_markets_response, gainers_coins_response]
-        
-        result = self.service.get_trending_coins(category='gainers')
+        self.mock_get.return_value = gainers_markets_response
+        result = self.service.get_market_trending_coins(category='gainers')
         
         with check:
             check.is_true(isinstance(result, list))
@@ -144,9 +132,8 @@ class TestCryptoService:
                 percent_change = coin['quote']['USD']['percent_change_24h']
                 check.greater(percent_change, 0)
         
-    def test_get_trending_coins_losers(self):
-        """Test fetching top losers"""
-        # First request for markets data
+    def test_get_market_trending_coins_losers(self):
+        """Test fetching top losers from markets endpoint"""
         losers_markets_response = Mock(status_code=200)
         losers_markets_response.json.return_value = [{
             'id': 'bitcoin',
@@ -161,13 +148,8 @@ class TestCryptoService:
             'sparkline_in_7d': {'price': []}
         }]
         
-        # Second request for losers data
-        losers_coins_response = Mock(status_code=200)
-        losers_coins_response.json.return_value = losers_markets_response.json.return_value
-        
-        self.mock_get.side_effect = [losers_markets_response, losers_coins_response]
-        
-        result = self.service.get_trending_coins(category='losers')
+        self.mock_get.return_value = losers_markets_response
+        result = self.service.get_market_trending_coins(category='losers')
         
         with check:
             check.is_true(isinstance(result, list))
@@ -185,12 +167,6 @@ class TestCryptoService:
         )
         self.mock_get.return_value = mock_response
         
-        coins =  self.service.get_trending_coins()
-        with check:
-            check.equal(coins, [])
-            
-    def test_invalid_category(self):
-        """Test handling of invalid category"""
-        with pytest.raises(ValueError) as exc_info:
-            self.service.get_trending_coins(category='invalid_category')
-        check.is_in("Invalid category", str(exc_info.value)) 
+        with pytest.raises(requests.exceptions.RequestException) as exc_info:
+            self.service.get_search_trending_coins()
+        check.is_in("Rate limit exceeded", str(exc_info.value))

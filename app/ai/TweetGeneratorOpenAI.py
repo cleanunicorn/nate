@@ -116,13 +116,12 @@ class TweetGeneratorOpenAI:
         analysis_type: str = 'market_overview',
         tone_agent: ToneAgent = None
     ) -> CryptoAnalysisThread:
-        """
-        Create a cryptocurrency market analysis thread with optional tone adjustment
+        """Create a cryptocurrency market analysis thread with optional tone adjustment.
         
         Args:
-            market_data (dict): Market data to analyze, containing price, volume, and other metrics
-            category (str): Type of analysis to perform
-            analysis_type (str): Depth of analysis
+            market_data (dict): Market data from either search/trending or coins/markets endpoint
+            category (str): Source of the data ('latest' for search trending, or 'visited'/'gainers'/'losers' for market data)
+            analysis_type (str): Depth of analysis ('market_overview' or 'detailed_analysis')
             tone_agent (ToneAgent, optional): Agent for adjusting tweet tone
             
         Returns:

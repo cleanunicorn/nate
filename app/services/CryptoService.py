@@ -1,40 +1,27 @@
 import logging
 from os import getenv
-from typing import List, Dict, Optional, Set, Literal
+from typing import List, Dict, Optional, Set, Literal, Any
 from dataclasses import dataclass
 import requests
 from requests.exceptions import RequestException, HTTPError, ConnectionError, Timeout
 from ratelimit import limits, sleep_and_retry
-from app.core.config import APIConfig
+from config.api_config import APIConfig
 
 logger = logging.getLogger(__name__)
 
 CategoryType = Literal['latest', 'visited', 'gainers', 'losers']
 
-@dataclass
-class APIConfig:
-    """Configuration for CoinGecko API endpoints"""
-    COINGECKO_BASE_URL: str = 'https://api.coingecko.com/api/v3'
-    CALLS_PER_MINUTE = 50
-    RATE_LIMIT = 50
-    RATE_LIMIT_WINDOW = 60  # seconds
-    
-    ENDPOINTS = {
-        'trending': '/search/trending',
-        'markets': '/coins/markets',
-        'global': '/global'
-    }
-
 class CryptoService:
-    """Service for interacting with CoinGecko API"""
+    """Service for interacting with CoinGecko API."""
     
-    def __init__(self, api_config: Optional[APIConfig] = None):
-        """
-        Initialize CoinGecko API client
+    def __init__(self, api_config: Optional[APIConfig] = None) -> None:
+        """Initialize CoinGecko API client.
         
         Args:
-            api_config (Optional[APIConfig]): Configuration for API calls. 
-                                            If None, uses default values.
+            api_config: Configuration for API calls. If None, uses default values.
+            
+        Raises:
+            ValueError: If COINGECKO_API_KEY environment variable is not set.
         """
         self.config = api_config or APIConfig()
         self.base_url = self.config.COINGECKO_BASE_URL
@@ -43,9 +30,23 @@ class CryptoService:
             raise ValueError("COINGECKO_API_KEY environment variable is not set")
 
     @sleep_and_retry
-    @limits(calls=APIConfig.CALLS_PER_MINUTE, period=APIConfig.RATE_LIMIT_WINDOW)
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Optional[Dict]:
-        """Make authenticated request to CoinGecko API with rate limiting"""
+    @limits(calls=APIConfig.COINGECKO_CALLS_PER_MINUTE, period=APIConfig.COINGECKO_RATE_LIMIT_WINDOW)
+    def _make_request(self, endpoint: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+        """Make authenticated request to CoinGecko API with rate limiting.
+        
+        Args:
+            endpoint: API endpoint to call.
+            params: Query parameters for the request.
+            
+        Returns:
+            Optional[Dict[str, Any]]: JSON response from the API.
+            
+        Raises:
+            HTTPError: For various HTTP-related errors.
+            ConnectionError: When connection fails.
+            Timeout: When request times out.
+            RequestException: For other request-related errors.
+        """
         url = f'{self.base_url}{endpoint}'
         headers = {'X-Cg-demo-Api-Key': self.api_key}
         
@@ -87,48 +88,117 @@ class CryptoService:
             raise
 
     @sleep_and_retry
-    @limits(calls=APIConfig.CALLS_PER_MINUTE, period=APIConfig.RATE_LIMIT_WINDOW)
-    def get_trending_coins(self, category: CategoryType = 'latest', limit: int = 10) -> List[Dict]:
-        """
-        Fetch trending cryptocurrencies based on specified category
+    @limits(
+        calls=APIConfig.COINGECKO_CALLS_PER_MINUTE,
+        period=APIConfig.COINGECKO_RATE_LIMIT_WINDOW
+    )
+    def get_search_trending_coins(self, limit: int = 10) -> List[Dict[str, Any]]:
+        """Fetch trending cryptocurrencies from the search/trending endpoint.
+        
+        Args:
+            limit: Maximum number of coins to return.
+            
+        Returns:
+            List of formatted coin data.
+            
+        Raises:
+            ValueError: If limit is not a positive integer.
         """
         if not isinstance(limit, int) or limit < 1:
             raise ValueError("Limit must be a positive integer")
 
         try:
-            if category == 'latest':
-                # Get trending coins
-                data = self._make_request(self.config.ENDPOINTS['trending'])
-                coins = [item['item'] for item in data['coins']][:limit]
-                
-                # Get additional market data for these coins
-                coin_ids = [coin['id'] for coin in coins]
-                return self._get_market_data(coin_ids)
-                
-            else:  # visited, gainers, losers
-                params = {
-                    'vs_currency': 'usd',
-                    'per_page': '250',  # Get more coins to sort through
-                    'page': '1',
-                    'order': 'market_cap_desc',
-                    'sparkline': 'false',
-                    'price_change_percentage': '24h'
-                }
-                
-                data = self._make_request(self.config.ENDPOINTS['markets'], params)
-                
-                if category == 'visited':
-                    data.sort(key=lambda x: float(x.get('total_volume', 0) or 0), reverse=True)
-                elif category == 'gainers':
-                    data.sort(key=lambda x: float(x.get('price_change_percentage_24h', 0) or 0), reverse=True)
-                elif category == 'losers':
-                    data.sort(key=lambda x: float(x.get('price_change_percentage_24h', 0) or 0))
-                
-                return self._format_coins(data[:limit])
-            
+            return self._fetch_trending_search_coins(limit)
         except Exception as e:
-            logger.error(f"Failed to fetch trending coins: {str(e)}")
-            return []
+            logger.error(f"Failed to fetch search trending coins: {str(e)}")
+            raise
+
+    @sleep_and_retry
+    @limits(
+        calls=APIConfig.COINGECKO_CALLS_PER_MINUTE,
+        period=APIConfig.COINGECKO_RATE_LIMIT_WINDOW
+    )
+    def get_market_trending_coins(
+        self,
+        category: Literal['visited', 'gainers', 'losers'],
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """Fetch trending cryptocurrencies from the coins/markets endpoint.
+        
+        Args:
+            category: Type of market data to fetch ('visited', 'gainers', 'losers').
+            limit: Maximum number of coins to return.
+            
+        Returns:
+            List of formatted coin data sorted by the specified category.
+            
+        Raises:
+            ValueError: If limit is not a positive integer.
+        """
+        if not isinstance(limit, int) or limit < 1:
+            raise ValueError("Limit must be a positive integer")
+
+        try:
+            return self._fetch_market_coins_by_category(category, limit)
+        except Exception as e:
+            logger.error(f"Failed to fetch market trending coins: {str(e)}")
+            raise
+
+    def _fetch_trending_search_coins(self, limit: int) -> List[Dict[str, Any]]:
+        """Fetch trending coins using the /search/trending endpoint.
+        
+        Args:
+            limit: Maximum number of coins to return.
+            
+        Returns:
+            List of formatted coin data for trending coins.
+            
+        Raises:
+            Exception: If trending coins fetch fails.
+        """
+        data = self._make_request(self.config.ENDPOINTS['trending'])
+        coins = [item['item'] for item in data['coins']][:limit]
+        coin_ids = [coin['id'] for coin in coins]
+        return self._get_market_data(coin_ids)
+
+    def _fetch_market_coins_by_category(
+        self,
+        category: Literal['visited', 'gainers', 'losers'],
+        limit: int
+    ) -> List[Dict[str, Any]]:
+        """Fetch and sort coins using the /coins/markets endpoint.
+        
+        Args:
+            category: Type of market data to fetch ('visited', 'gainers', 'losers').
+            limit: Maximum number of coins to return.
+            
+        Returns:
+            List of formatted coin data sorted by the specified category.
+            
+        Raises:
+            Exception: If market data fetch fails.
+        """
+        params = {
+            'vs_currency': 'usd',
+            'per_page': '250',  # Get more coins to sort through
+            'page': '1',
+            'order': 'market_cap_desc',
+            'sparkline': 'false',
+            'price_change_percentage': '24h'
+        }
+        
+        market_data = self._make_request(self.config.ENDPOINTS['markets'], params)
+        
+        sort_key_map = {
+            'visited': lambda x: float(x.get('total_volume', 0) or 0),
+            'gainers': lambda x: float(x.get('price_change_percentage_24h', 0) or 0),
+            'losers': lambda x: float(x.get('price_change_percentage_24h', 0) or 0)
+        }
+        
+        reverse_sort = category != 'losers'
+        market_data.sort(key=sort_key_map[category], reverse=reverse_sort)
+        
+        return self._format_coins(market_data[:limit])
 
     def _get_market_data(self, coin_ids: List[str]) -> List[Dict]:
         """Get detailed market data for specific coins"""
@@ -144,7 +214,7 @@ class CryptoService:
             return self._format_coins(coins)
         except Exception as e:
             logger.error(f"Failed to fetch market data: {str(e)}")
-            return []
+            raise e
 
     def _format_coins(self, coins: List[Dict]) -> List[Dict]:
         """Format coin data and add hashtags"""
@@ -171,33 +241,7 @@ class CryptoService:
                 
         return formatted_coins
 
-    @sleep_and_retry
-    @limits(calls=APIConfig.CALLS_PER_MINUTE, period=APIConfig.RATE_LIMIT_WINDOW)
-    def get_top_crypto_coins(self, limit: int = 10) -> List[Dict]:
-        """Fetch top cryptocurrencies by market cap"""
-        if not isinstance(limit, int) or limit < 1:
-            raise ValueError("Limit must be a positive integer")
-            
-        params = {
-            'start': 1,
-            'limit': limit,
-            'convert': 'USD',
-            'sort': 'market_cap',
-            'sort_dir': 'desc'
-        }
-        
-        try:
-            coins = self._make_request(self.config.ENDPOINTS['v1']['listings'], params)
-            
-            # Add hashtags to each coin's data
-            for coin in coins:
-                coin['hashtags'] = self.get_crypto_hashtags(coin)       
-                
-            return coins
-            
-        except Exception as e:
-            logger.error(f"Failed to fetch top crypto coins: {str(e)}")
-            return []
+
 
     @staticmethod
     def get_crypto_hashtags(coin_data: Dict) -> Set[str]:
