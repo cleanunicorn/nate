@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from requests.exceptions import RequestException, ConnectionError, Timeout
 
 # Group app imports together
+from app.ai.agents.CryptoMarketAnalysisFormatAgent import CryptoMarketAnalysisFormatAgent
 from app.ai.agents.ToneAgent import ToneAgent
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.twitter.TwitterClient import TwitterClient
@@ -311,12 +312,14 @@ def twitter_trending_crypto(category, analysis, dry_run):
         
         # Generate analysis thread
         tone_agent = ToneAgent(api_key=getenv("OPENAI_API_KEY"))
+        crypto_market_analysis_format_agent = CryptoMarketAnalysisFormatAgent(api_key=getenv("OPENAI_API_KEY"))
 
         analysis_thread = generator.create_crypto_analysis(
             market_data=market_data,
             category=category,
             analysis_type=analysis,
-            tone_agent=tone_agent
+            tone_agent=tone_agent,
+            crypto_market_analysis_format_agent = crypto_market_analysis_format_agent
         )
 
         # Display generated thread

@@ -2,6 +2,7 @@ import logging
 
 from openai import OpenAI
 
+from app.ai.agents.CryptoMarketAnalysisFormatAgent import CryptoMarketAnalysisFormatAgent
 from app.ai.models import (
     TweetModel,
     TweetThreadModel,
@@ -19,9 +20,7 @@ from config.prompts import (
 from app.utils.utils import format_tweet_timeline
 from app.core.exceptions import (
     TweetGenerationError,
-    TweetFormatError,
     MarketDataError,
-    DataFormatError
 )
 from app.ai.agents.ToneAgent import ToneAgent
 
@@ -123,7 +122,8 @@ class TweetGeneratorOpenAI:
         market_data: dict,
         category: str = 'latest',
         analysis_type: str = 'market_overview',
-        tone_agent: ToneAgent = None
+        tone_agent: ToneAgent = None,
+        crypto_market_analysis_format_agent: CryptoMarketAnalysisFormatAgent = None
     ) -> CryptoAnalysisThreadModel:
         """Create a cryptocurrency market analysis thread with optional tone adjustment.
         
@@ -143,29 +143,22 @@ class TweetGeneratorOpenAI:
             TweetGenerationError: If generation fails
         """
         try:
-            logger.debug(f"Creating crypto analysis with data: {market_data}")
             
             if not market_data or not isinstance(market_data, dict):
                 logger.error("Invalid market data format")
                 raise MarketDataError("Invalid or empty market data")
 
-            # Log the data structure
-            logger.debug(f"Market data keys: {market_data.keys()}")
-            if 'assets' in market_data:
-                logger.debug(f"First asset keys: {market_data['assets'][0].keys() if market_data['assets'] else 'No assets'}")
-            
             prompt = get_analysis_prompt(
                 category=category,
                 analysis_type=analysis_type,
                 market_data=market_data
             )
             
-            logger.debug(f"Generated prompt: {prompt}")
-            
             response = self.client.beta.chat.completions.parse(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": prompt}
+                    {"role": "system", "content": self.crypto_system},
+                    {"role": "user", "content": prompt},
                 ],
                 response_format=CryptoAnalysisThreadModel,
                 temperature=1.2,
@@ -182,6 +175,10 @@ class TweetGeneratorOpenAI:
             # Adjust tone if agent provided
             if tone_agent:
                 content = tone_agent.adjust_tone_thread(content)
+
+            # Format tweet thread accordingly if agent provided
+            if crypto_market_analysis_format_agent:
+                content = crypto_market_analysis_format_agent.format_thread(content)
             
             return self._deduplicate_mentions(content)
             
