@@ -278,9 +278,9 @@ def twitter_trending_crypto(category, analysis, dry_run):
         
         try:
             coins = (
-                crypto_service.get_search_trending_coins(limit=10)
+                crypto_service.get_search_trending_coins(limit=3)
                 if category == 'latest'
-                else crypto_service.get_market_trending_coins(category=category, limit=10)
+                else crypto_service.get_market_trending_coins(category=category, limit=3)
             )
         except (RequestException, ConnectionError, Timeout) as e:
             click.echo(f"API Error: {str(e)}")

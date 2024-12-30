@@ -14,8 +14,6 @@ from app.core.exceptions import (
     MarketDataError
 )
 
-logger = logging.getLogger(__name__)
-
 CategoryType = Literal['latest', 'visited', 'gainers', 'losers']
 TRENDING_COINS_LIMIT = 3
 
@@ -67,40 +65,35 @@ class CryptoService:
             )
             
             if response.status_code == 400:
-                logger.error(f"Bad Request: Invalid parameters - URL: {url}, Params: {params}")
                 raise HTTPError(f"Bad Request: Invalid parameters for endpoint {endpoint}")
             elif response.status_code == 429:
-                logger.error("Rate limit exceeded")
                 raise HTTPError("Rate limit exceeded")
             elif response.status_code == 401:
-                logger.error("Unauthorized: Invalid API key")
                 raise HTTPError("Unauthorized: Invalid API key")
             elif response.status_code == 403:
-                logger.error("Forbidden: API key doesn't have access to this endpoint")
                 raise HTTPError("Forbidden: API key doesn't have access to this endpoint")
             elif response.status_code >= 500:
-                logger.error(f"CoinGecko API is experiencing issues: {response.status_code}")
                 raise HTTPError("API service unavailable")
                 
             response.raise_for_status()
             return response.json()
             
         except ConnectionError:
-            logger.error("Failed to connect to CoinGecko API", exc_info=True)
-            raise
+            raise ConnectionError("Failed to connect to CoinGecko API")
         except Timeout:
-            logger.error("Request to CoinGecko API timed out", exc_info=True)
-            raise
+            raise Timeout("Request to CoinGecko API timed out")
         except RequestException as e:
-            logger.error(f"API request failed: {str(e)}", exc_info=True)
-            raise
+            raise RequestException(f"API request failed: {str(e)}") from e
 
     @sleep_and_retry
     @limits(
         calls=APIConfig.COINGECKO_CALLS_PER_MINUTE,
         period=APIConfig.COINGECKO_RATE_LIMIT_WINDOW
     )
-    def get_search_trending_coins(self, limit: int = TRENDING_COINS_LIMIT) -> List[Dict[str, Any]]:
+    def get_search_trending_coins(
+        self,
+        limit: int = TRENDING_COINS_LIMIT
+    ) -> List[Dict[str, Any]]:
         """Fetch trending cryptocurrencies from the search/trending endpoint.
         
         Args:
@@ -154,16 +147,26 @@ class CryptoService:
             List of formatted coin data sorted by the specified category.
             
         Raises:
-            ValueError: If limit is not a positive integer.
+            CoinLimitError: If limit is invalid
+            RateLimitError: If API rate limit is exceeded
+            CryptoAPIError: If API request fails
+            DataFormatError: If response format is invalid
         """
         if not isinstance(limit, int) or limit < 1:
-            raise ValueError("Limit must be a positive integer")
+            raise CoinLimitError("Limit must be a positive integer")
+        if limit > TRENDING_COINS_LIMIT:
+            raise CoinLimitError(f"Limit cannot exceed {TRENDING_COINS_LIMIT}")
 
         try:
             return self._fetch_market_coins_by_category(category, limit)
-        except Exception as e:
-            logger.error(f"Failed to fetch market trending coins: {str(e)}")
-            raise
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded") from e
+            raise CryptoAPIError(f"API request failed: {str(e)}") from e
+        except requests.exceptions.RequestException as e:
+            raise CryptoAPIError(f"Request failed: {str(e)}") from e
+        except (KeyError, ValueError) as e:
+            raise DataFormatError(f"Invalid data format: {str(e)}") from e
 
     def _fetch_trending_search_coins(self, limit: int) -> List[Dict[str, Any]]:
         """Fetch trending coins using the /search/trending endpoint.
@@ -197,11 +200,19 @@ class CryptoService:
             List of formatted coin data sorted by the specified category.
             
         Raises:
-            Exception: If market data fetch fails.
+            MarketDataError: If market data fetch fails
+            DataFormatError: If response format is invalid
         """
-        market_data = self._fetch_raw_market_data()
-        sorted_data = self._sort_market_data(market_data, category)
-        return self._format_coins(sorted_data[:limit])
+        try:
+            market_data = self._fetch_raw_market_data()
+            if not market_data:
+                raise MarketDataError("No market data received")
+                
+            sorted_data = self._sort_market_data(market_data, category)
+            return self._format_coins(sorted_data[:limit])
+            
+        except Exception as e:
+            raise MarketDataError(f"Failed to fetch market data: {str(e)}") from e
 
     def _fetch_raw_market_data(self) -> List[Dict[str, Any]]:
         """Fetch raw market data from the API."""
@@ -251,7 +262,12 @@ class CryptoService:
         )
 
     def _get_market_data(self, coin_ids: List[str]) -> List[Dict]:
-        """Get detailed market data for specific coins"""
+        """Get detailed market data for specific coins.
+        
+        Raises:
+            CryptoAPIError: If API request fails
+            DataFormatError: If response format is invalid
+        """
         params = {
             'vs_currency': 'usd',
             'ids': ','.join(coin_ids),
@@ -261,13 +277,25 @@ class CryptoService:
         
         try:
             coins = self._make_request(self.config.ENDPOINTS['markets'], params)
+            if not coins:
+                raise DataFormatError("No coin data received")
             return self._format_coins(coins)
-        except Exception as e:
-            logger.error(f"Failed to fetch market data: {str(e)}")
-            raise e
+            
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded") from e
+            raise CryptoAPIError(f"API request failed: {str(e)}") from e
+        except requests.exceptions.RequestException as e:
+            raise CryptoAPIError(f"Request failed: {str(e)}") from e
+        except (KeyError, ValueError) as e:
+            raise DataFormatError(f"Invalid data format: {str(e)}") from e
 
     def _format_coins(self, coins: List[Dict]) -> List[Dict]:
-        """Format coin data and add hashtags"""
+        """Format coin data and add hashtags.
+        
+        Raises:
+            DataFormatError: If coin data format is invalid
+        """
         formatted_coins = []
         for coin in coins:
             try:
@@ -286,9 +314,11 @@ class CryptoService:
                 formatted_coin['hashtags'] = self.get_crypto_hashtags(formatted_coin)
                 formatted_coins.append(formatted_coin)
             except (KeyError, ValueError, TypeError) as e:
-                logger.warning(f"Error formatting coin data: {e}")
-                continue
+                raise DataFormatError(f"Error formatting coin data: {e}") from e
                 
+        if not formatted_coins:
+            raise DataFormatError("Failed to format any coin data")
+            
         return formatted_coins
 
 
