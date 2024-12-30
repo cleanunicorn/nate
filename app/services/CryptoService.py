@@ -11,7 +11,9 @@ from app.core.exceptions import (
     RateLimitError,
     DataFormatError,
     CoinLimitError,
-    MarketDataError
+    MarketDataError,
+    UnauthorizedError,
+    ServerError
 )
 
 CategoryType = Literal['latest', 'visited', 'gainers', 'losers']
@@ -63,21 +65,21 @@ class CryptoService:
                 params=params, 
                 timeout=10
             )
-            
-            if response.status_code == 400:
-                raise HTTPError(f"Bad Request: Invalid parameters for endpoint {endpoint}")
-            elif response.status_code == 429:
-                raise HTTPError("Rate limit exceeded")
-            elif response.status_code == 401:
-                raise HTTPError("Unauthorized: Invalid API key")
-            elif response.status_code == 403:
-                raise HTTPError("Forbidden: API key doesn't have access to this endpoint")
-            elif response.status_code >= 500:
-                raise HTTPError("API service unavailable")
-                
             response.raise_for_status()
             return response.json()
             
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                raise RateLimitError("Rate limit exceeded") from e
+            elif e.response.status_code == 400:
+                raise CryptoAPIError(f"Bad Request: Invalid parameters for endpoint {endpoint}") from e
+            elif e.response.status_code == 401:
+                raise UnauthorizedError("Invalid API key") from e
+            elif e.response.status_code == 403:
+                raise UnauthorizedError("API key doesn't have access to this endpoint") from e
+            elif e.response.status_code >= 500:
+                raise ServerError("API service unavailable") from e
+            raise
         except ConnectionError:
             raise ConnectionError("Failed to connect to CoinGecko API")
         except Timeout:
@@ -183,6 +185,7 @@ class CryptoService:
         data = self._make_request(self.config.ENDPOINTS['trending'])
         coins = [item['item'] for item in data['coins']][:limit]
         coin_ids = [coin['id'] for coin in coins]
+        
         return self._get_market_data(coin_ids)
 
     def _fetch_market_coins_by_category(

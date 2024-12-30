@@ -167,7 +167,7 @@ class TestCryptoService:
         response.status_code = 429
         
         # Create HTTPError with proper response
-        http_error = requests.exceptions.HTTPError()
+        http_error = requests.exceptions.HTTPError("Rate limit exceeded")
         http_error.response = response
         
         # Set up the mock to raise the error
