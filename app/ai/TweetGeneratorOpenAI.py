@@ -39,7 +39,6 @@ class TweetGeneratorOpenAI:
         self.crypto_system = CRYPTO_SYSTEM_PROMPT
         self.prompt = USER_PROMPT_TWITTER
         self.client = OpenAI(api_key=api_key)
-        self.model = "gpt-4"
 
     def _deduplicate_mentions(self, content: TweetModel | TweetThreadModel) -> TweetModel | TweetThreadModel:
         mentioned_tweets = {}
@@ -168,10 +167,6 @@ class TweetGeneratorOpenAI:
             
             content = response.choices[0].message.parsed
             
-            # Validate tweet format
-            # if not self._validate_tweet_format(content):
-                # raise TweetFormatError("Generated tweets don't match required format")
-            
             # Adjust tone if agent provided
             if tone_agent:
                 content = tone_agent.adjust_tone_thread(content)
@@ -180,31 +175,7 @@ class TweetGeneratorOpenAI:
             if crypto_market_analysis_format_agent:
                 content = crypto_market_analysis_format_agent.format_thread(content)
             
-            return self._deduplicate_mentions(content)
-            
+            return content
         except Exception as e:
             logger.error(f"Failed to generate crypto analysis: {str(e)}")
             raise TweetGenerationError("Failed to generate cryptocurrency analysis") from e
-
-    # TODO: Implement proper tweet format validation
-    # def _validate_tweet_format(self, content: CryptoAnalysisThreadModel) -> bool:
-    #     """Validate that tweets follow required format.
-    #     
-    #     Args:
-    #         content (CryptoAnalysisThreadModel): Generated thread to validate
-    #         
-    #     Returns:
-    #         bool: True if format is valid, False otherwise
-    #     """
-    #     try:
-    #         first_tweet = content.tweets[0].text
-    #         # Check for required elements
-    #         if not "📊 Crypto Trend Analysis" in first_tweet:
-    #             return False
-    #         if not "Coins Right Now:" in first_tweet:
-    #             return False
-    #         if not all(f"${coin.symbol}:" in first_tweet for coin in content.coins):
-    #             return False
-    #         return True
-    #     except (AttributeError, IndexError):
-    #         return False
