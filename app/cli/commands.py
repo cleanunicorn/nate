@@ -13,11 +13,6 @@ from app.ai.agents.ToneAgent import ToneAgent
 from app.ai.TweetGeneratorOpenAI import TweetGeneratorOpenAI
 from app.twitter.TwitterClient import TwitterClient
 from app.services.CryptoService import CryptoService
-from app.core.exceptions import (
-    CryptoAPIError,
-    RateLimitError,
-    DataFormatError
-)
 
 # Load environment variables at module level
 load_dotenv()
